@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex justify-center mt-10 px-4">
+    <div class="w-full max-w-3xl bg-white rounded-xl shadow-lg p-8">
+        <h2 class="text-center text-3xl font-semibold mb-8">{{ title }}</h2>
+
+        {% if form.errors %}
+        <div class="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+            <strong>Attention !</strong> Veuillez corriger les erreurs ci-dessous :
+            <ul class="list-disc list-inside mt-2">
+                {% for field, errors in form.errors.items %}
+                {% for error in errors %}
+                <li><strong>{{ field|capfirst }} :</strong> {{ error }}</li>
+                {% endfor %}
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <form method="POST" enctype="multipart/form-data" novalidate>
+            {% csrf_token %}
+
+            <!-- Nom d'utilisateur -->
+            <div class="mb-5">
+                <label for="{{ form.username.id_for_label }}" class="block font-semibold mb-1 text-gray-700">
+                    Nom d'utilisateur <span class="text-red-500">*</span>
+                </label>
+                <input type="text" name="{{ form.username.name }}" id="{{ form.username.id_for_label }}"
+                    value="{{ form.username.value|default_if_none:'' }}" required
+                    class="w-full rounded border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                {% for error in form.username.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <div class="mb-5 flex gap-4">
+                <!-- Prénom -->
+                <div class="flex-1">
+                    <label for="{{ form.first_name.id_for_label }}" class="block font-semibold mb-1 text-gray-700">
+                        Prénom <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="{{ form.first_name.name }}" id="{{ form.first_name.id_for_label }}"
+                        value="{{ form.first_name.value|default_if_none:'' }}" required
+                        class="w-full rounded border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    {% for error in form.first_name.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+                    {% endfor %}
+                </div>
+
+                <!-- Nom -->
+                <div class="flex-1">
+                    <label for="{{ form.last_name.id_for_label }}" class="block font-semibold mb-1 text-gray-700">
+                        Nom <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="{{ form.last_name.name }}" id="{{ form.last_name.id_for_label }}"
+                        value="{{ form.last_name.value|default_if_none:'' }}" required
+                        class="w-full rounded border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    {% for error in form.last_name.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="mb-5 flex gap-4">
+                <!-- Email -->
+                <div class="flex-1">
+                    <label for="{{ form.email.id_for_label }}" class="block font-semibold mb-1 text-gray-700">
+                        Email <span class="text-red-500">*</span>
+                    </label>
+                    <input type="email" name="{{ form.email.name }}" id="{{ form.email.id_for_label }}"
+                        value="{{ form.email.value|default_if_none:'' }}" required
+                        class="w-full rounded border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    {% for error in form.email.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+                    {% endfor %}
+                </div>
+
+                <!-- Téléphone -->
+                <div class="flex-1">
+                    <label for="{{ form.phone.id_for_label }}" class="block font-semibold mb-1 text-gray-700">
+                        Téléphone
+                    </label>
+                    <input type="text" name="{{ form.phone.name }}" id="{{ form.phone.id_for_label }}"
+                        value="{{ form.phone.value|default_if_none:'' }}"
+                        class="w-full rounded border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    {% for error in form.phone.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+
+
+            <!-- Photo de profil -->
+            <div class="mb-5">
+                <label for="{{ form.profile_picture.id_for_label }}" class="block font-semibold mb-1 text-gray-700">
+                    Photo de profil
+                </label>
+                <input type="file" name="{{ form.profile_picture.name }}" id="{{ form.profile_picture.id_for_label }}"
+                    class="w-full rounded border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                {% for error in form.profile_picture.errors %}
+                <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <!-- Rôle (champ select) -->
+            <div class="mb-5">
+                <label for="role" class="block font-semibold mb-1 text-gray-700">Rôle</label>
+                {{ form.role }}
+            </div>
+
+            <div class="mb-5 flex gap-4">
+                <!-- Mot de passe -->
+                <div class="flex-1">
+                    <label for="password1" class="block font-semibold mb-1 text-gray-700">
+                        Mot de passe <span class="text-red-500">*</span>
+                    </label>
+                    <input type="password" id="password1" name="{{ form.password1.name }}" required
+                        class="w-full rounded border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-purple-500 {% if form.password1.errors %}border-red-500{% endif %}">
+                    {% for error in form.password1.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+                    {% endfor %}
+                </div>
+
+                <!-- Confirmation mot de passe -->
+                <div class="flex-1">
+                    <label for="password2" class="block font-semibold mb-1 text-gray-700">
+                        Confirmer le mot de passe <span class="text-red-500">*</span>
+                    </label>
+                    <input type="password" id="password2" name="{{ form.password2.name }}" required
+                        class="w-full rounded border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-purple-500 {% if form.password2.errors %}border-red-500{% endif %}">
+                    {% for error in form.password2.errors %}
+                    <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Boutons -->
+            <div class="flex justify-end space-x-3 mt-6">
+                <a href="{% url 'user_list' %}"
+                    class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition">
+                    Annuler
+                </a>
+                <button type="submit" id="submitBtn"
+                    class="px-6 py-2 bg-purple-600 text-white rounded shadow hover:bg-purple-700 transition">
+                    Ajouter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const password1 = document.getElementById("password1");
+        const password2 = document.getElementById("password2");
+        const submitBtn = document.getElementById("submitBtn");
+
+        function validatePassword() {
+            if (password1 && password2) {
+                if (password1.value !== password2.value) {
+                    password2.classList.add("border-red-500");
+                    submitBtn.disabled = true;
+                } else {
+                    password2.classList.remove("border-red-500");
+                    submitBtn.disabled = false;
+                }
+            }
+        }
+
+        if (password1 && password2) {
+            password1.addEventListener("keyup", validatePassword);
+            password2.addEventListener("keyup", validatePassword);
+        }
+    });
+</script>
+{% endblock %}

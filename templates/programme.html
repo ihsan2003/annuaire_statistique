@@ -1,0 +1,945 @@
+{% extends "base.html" %}
+
+{% block title %}Programmes{% endblock %}
+
+{% block content %}
+
+<style>
+    /* Animation des cartes */
+    .card-animated {
+    animation: fadeInUpCustom 0.5s ease-out forwards;
+    opacity: 0;
+    }
+
+    .card-delay-1 { animation-delay: 0.1s; }
+    .card-delay-2 { animation-delay: 0.2s; }
+    .card-delay-3 { animation-delay: 0.3s; }
+    .card-delay-4 { animation-delay: 0.4s; }
+
+    /* Animation des éléments à l'intérieur des cartes */
+    .card-body .card-title,
+    .card-body .card-text,
+    .card-body a {
+    opacity: 0;
+    transform: translateY(15px);
+    animation: fadeInUpCustom 0.4s ease forwards;
+    }
+
+    .card-body .card-title { animation-delay: 0.6s; }
+    .card-body .card-text { animation-delay: 0.7s; }
+    .card-body a { animation-delay: 0.8s; }
+
+    /* Animation des icônes */
+    .card-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: fadeInUpCustom 0.4s ease forwards;
+    }
+
+        /* Animation d'apparition */
+    @keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    }
+
+    @keyframes fadeOutDown {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    }
+
+</style>
+
+<!-- KPI Cards -->
+<section class="w-full mx-auto my-10">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+        
+        <!-- Total Bénéficiaires -->
+        <div class="bg-[#A554B7] text-white p-6 rounded shadow text-center animate-fade-in">
+            <i class="fa-solid fa-users text-3xl mb-3"></i>
+            <h5 class="text-2xl font-bold">
+                <span class="animated-number" data-value="{{ beneficiaires_count }}">0</span>
+            </h5>
+            <p>Total des Bénéficiaires</p>
+        </div>
+
+        <!-- Pourcentage Femmes/Hommes -->
+        <div class="bg-[#59824A] text-white p-6 rounded shadow animate-fade-in delay-100">
+            <i class="fa-solid fa-children text-3xl mb-3 block text-center"></i>
+            <div class="flex justify-between text-sm gap-2">
+                <div class="text-center w-1/2">
+                    <h5 class="text-xl font-bold">
+                        <span class="animated-number" data-value="{{ pourcentage_femmes }}">0</span> %
+                    </h5>
+                    <p>Femmes</p>
+                </div>
+                <div class="text-center w-1/2">
+                    <h5 class="text-xl font-bold">
+                        <span class="animated-number" data-value="{{ pourcentage_hommes }}">0</span> %
+                    </h5>
+                    <p>Hommes</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Milieu Urbain vs Rural -->
+        <div class="bg-[#2E446A] text-white p-6 rounded shadow animate-fade-in delay-200">
+            <i class="fa-solid fa-scale-balanced text-3xl mb-3 block text-center"></i>
+            <div class="flex justify-between text-sm gap-2">
+                <div class="text-center w-1/2">
+                    <h5 class="text-xl font-bold">
+                        <span class="animated-number" data-value="{{ benefic_urbain|floatformat:2 }}">0</span>
+                    </h5>
+                    <p>Urbain</p>
+                </div>
+                <div class="text-center w-1/2">
+                    <h5 class="text-xl font-bold">
+                        <span class="animated-number" data-value="{{ benefic_rural|floatformat:2 }}">0</span>
+                    </h5>
+                    <p>Rural</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nombre des types des populations -->
+        <div class="bg-yellow-500 text-white p-6 rounded shadow text-center animate-fade-in delay-300">
+            <i class="fa-solid fa-school text-3xl mb-3"></i>
+            <h5 class="text-2xl font-bold">
+                <span class="animated-number" data-value="{{ nombre_etabs }}">0</span>
+            </h5>
+            <p>Nombre des population</p>
+        </div>
+
+    </div>
+</section>
+
+
+<!-- Filtres -->
+<section class="w-full mx-auto mb-8">
+    <form method="get" action="{% url 'programmes' %}" class="flex flex-wrap gap-4 justify-end">
+       <select name="annee" id="annee-select"
+            class="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-400">
+        <option value="">-- Année --</option>
+        {% for annee in annees %}
+            <option value="{{ annee }}" {% if selected_annee|stringformat:"s" == annee|stringformat:"s" %}selected{% endif %}>
+                {{ annee }}
+            </option>
+        {% endfor %}
+    </select>
+
+
+        <select name="region" id="region-select"
+            class="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-400">
+            <option value="">-- Région --</option>
+            {% for region in regions %}
+                <option value="{{ region.id_region }}" {% if selected_region == region.id_region|stringformat:"s" %}selected{% endif %}>
+                    {{ region.region }}
+                </option>
+            {% endfor %}
+        </select>
+
+       <select name="delegation" id="delegation-select"
+            class="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-400"
+            disabled>
+            <option value="">-- Délégation --</option>
+            {% for deleg in delegations %}
+                {% if not selected_region or deleg.id_region == selected_region|add:""|stringformat:"s" %}
+                    <option value="{{ deleg.id_delegation }}" {% if selected_delegation == deleg.id_delegation|stringformat:"s" %}selected{% endif %}>
+                        {{ deleg.delegation }}
+                    </option>
+                {% endif %}
+            {% endfor %}
+        </select>
+
+        <button type="submit"
+            class="bg-[#A554B7] text-white px-4 py-2 rounded hover:bg-purple-700 transition">
+            Filtrer
+        </button>
+    </form>
+</section>
+
+
+<!-- Toast Exportation -->
+<div id="toastExport"
+     class="fixed top-5 right-5 bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded shadow-lg hidden"
+     role="alert">
+    <div class="flex items-center justify-between">
+        <span><i class="fa-solid fa-download mr-2"></i> Graphe téléchargé avec succès.</span>
+        <button onclick="document.getElementById('toastExport').classList.add('hidden')"
+                class="text-yellow-600 hover:text-yellow-900">&times;</button>
+    </div>
+    <div class="h-1 bg-yellow-300 mt-2 animate-progress"></div>
+</div>
+
+<section class="w-full mx-auto space-y-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white rounded shadow p-4 h-[500px] w-full pb-12">
+            <div class="flex justify-end">
+                <i class="fa-solid fa-download text-gray-500 hover:text-purple-600 cursor-pointer"
+                   title="Télécharger en image" onclick="showToast('toastExport')" data-chart-id="chartSexe"></i>
+            </div>
+            <h1 class="text-2xl font-semibold mb-2 ml-2">Répartition des Bénéficiaires par Programme</h1>
+            <canvas id="chartProg"></canvas>
+        </div>
+
+        <div class="bg-white rounded shadow p-4 h-[500px] w-full pb-12">
+            <div class="flex justify-end">
+                <i class="fa-solid fa-download text-gray-500 hover:text-purple-600 cursor-pointer"
+                   title="Télécharger en image" onclick="showToast('toastExport')" data-chart-id="chartPopulation"></i>
+            </div>
+            <h2 class="text-2xl font-semibold mb-2 ml-2">Répartition des Centres par Programme</h2>
+            <canvas id="chartCentres"></canvas>
+        </div>
+    </div>
+
+    <div class="bg-white rounded shadow p-4 h-[700px] col-span-2 w-full pb-24">
+        <div class="flex justify-end">
+            <i class="fa-solid fa-download text-gray-500 hover:text-purple-600 cursor-pointer"
+            title="Télécharger en image" onclick="showToast('toastExport')" data-chart-id="chartCapacite"></i>
+        </div>
+        <h2 class="text-2xl font-semibold mb-12 ml-2">Nombre des Bénéficiaires par Sexe et Programme</h2>
+        <canvas id="chartSexeProg"></canvas>
+    </div>
+    <div class="bg-white rounded shadow p-4 h-[700px] col-span-2 w-full pb-24">
+        <div class="flex justify-end">
+            <i class="fa-solid fa-download text-gray-500 hover:text-purple-600 cursor-pointer"
+            title="Télécharger en image" onclick="showToast('toastExport')" data-chart-id="chartCapacite"></i>
+        </div>
+        <h1 class="text-2xl font-semibold mb-2 ml-2">Répartition des Centres par Programme</h1>
+            <canvas id="chartCentreProg"></canvas>
+    </div>
+    
+    <div class="bg-white rounded shadow p-4 h-[700px] w-full pb-32">
+        <div class="flex justify-end">
+            <i class="fa-solid fa-download text-gray-500 hover:text-purple-600 cursor-pointer"
+            title="Télécharger en image" onclick="showToast('toastExport')" data-chart-id="chartEvolutionSexeProg"></i>
+        </div>
+        <h2 class="text-2xl font-semibold mb-12 text-center">Évolution par Sexe et Programme</h2>
+
+        <div class="flex gap-4 mb-4">
+            <select id="progFilter" class="p-2 border rounded">
+                {% for prog in evolution_sexe_programme.keys %}
+                    <option value="{{ prog }}">{{ prog }}</option>
+                {% endfor %}
+            </select>
+            <select id="sexeFilter" class="p-2 border rounded">
+                <option value="hommes">Hommes</option>
+                <option value="femmes">Femmes</option>
+            </select>
+        </div>
+
+        <div class="flex justify-center items-center h-full pb-12">
+            <canvas id="chartEvolutionSexeProg" class="w-full"></canvas>
+        </div>
+    </div>
+
+
+</section>
+
+<!-- Chart.js (doit venir en premier) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- Plugin OUTLABELS (doit venir ensuite) -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-piechart-outlabels@latest/dist/chartjs-plugin-piechart-outlabels.min.js"></script>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const regionSelect = document.getElementById('region-select');
+        const delegationSelect = document.getElementById('delegation-select');
+
+        regionSelect.addEventListener('change', function () {
+            const regionId = this.value;
+
+            // Réinitialiser le champ des délégations
+            delegationSelect.innerHTML = '<option value="">-- Délégation --</option>';
+            delegationSelect.disabled = true;
+
+            if (regionId) {
+                fetch(`/ajax/get-delegations/?region_id=${regionId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.delegations.forEach(deleg => {
+                            const option = document.createElement('option');
+                            option.value = deleg.id_delegation;
+                            option.textContent = deleg.delegation;
+                            delegationSelect.appendChild(option);
+                        });
+                        delegationSelect.disabled = false;
+                    })
+                    .catch(error => {
+                        console.error('Erreur lors du chargement des délégations :', error);
+                        alert('Erreur lors du chargement des délégations. Consultez la console.');
+                    });
+
+            }
+        });
+    });
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // === Plugins globaux ===
+        const outerRingPlugin = {
+            id: 'outerRing',
+            afterDatasetDraw(chart, args, pluginOptions) {
+                const { ctx, _active } = chart;
+                if (_active && _active.length > 0) {
+                    const arc = _active[0].element;
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = arc.options.backgroundColor;
+                    ctx.arc(arc.x, arc.y, arc.outerRadius + 10, arc.startAngle, arc.endAngle);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+        };
+
+        const centerTextPlugin = {
+            id: 'centerTextRev',
+            beforeDraw(chart) {
+                const { width, height, ctx } = chart;
+                const dataset = chart.data.datasets[0].data;
+                const colors = chart.data.datasets[0].backgroundColor;
+                const total = dataset.reduce((a, b) => a + b, 0);
+                const activeIndex = chart._active?.[0]?.index;
+
+                const value = activeIndex !== undefined ? dataset[activeIndex] : total;
+                const label = activeIndex !== undefined ? chart.data.labels[activeIndex] : 'Total';
+                const color = activeIndex !== undefined ? colors[activeIndex] : '#333';
+
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                ctx.font = 'bold 28px sans-serif';
+                ctx.fillStyle = color;
+                ctx.fillText(Math.floor(value), width / 2, height / 1.9 - 30);
+
+                ctx.font = 'bold 18px sans-serif';
+                const words = label.split(' ');
+                let line = '';
+                const lines = [];
+                const maxWidth = 140;
+
+                for (let n = 0; n < words.length; n++) {
+                    const testLine = line + words[n] + ' ';
+                    const metrics = ctx.measureText(testLine);
+                    if (metrics.width > maxWidth && n > 0) {
+                        lines.push(line.trim());
+                        line = words[n] + ' ';
+                    } else {
+                        line = testLine;
+                    }
+                }
+                lines.push(line.trim());
+
+                const lineHeight = 25;
+                lines.forEach((l, i) => {
+                    ctx.fillText(l, width / 2, height / 1.8 + (i * lineHeight));
+                });
+
+                ctx.restore();
+            }
+        };
+
+        let activeIndex = -1;
+
+        // === Chart 1: Répartition par programme ===
+        const progData = {
+            labels: {{ chart_labels|safe }},
+            datasets: [{
+                label: 'Répartition par Programme',
+                data: {{ chart_data|safe }},
+                backgroundColor: [
+                    "#2E446A", "#59824A", "#A554B7", "#EEDC81", "#36A2EB",
+                    "#FF6384", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40",
+                    "#C9CBCF", "#1C2331", "#66BB6A", "#BA68C8", "#FFA726",
+                    "#8D6E63", "#F06292", "#7E57C2", "#0097A7", "#D4E157"
+                ],
+                hoverOffset: 10,
+            }]
+        };
+
+        new Chart(document.getElementById('chartProg'), {
+            type: 'doughnut',
+            data: progData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                layout: { padding: 30 },
+                animation: {
+                    animateRotate: true,
+                    animateScale: true,
+                    duration: 350,
+                    easing: 'easeOutBounce'
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        callbacks: {
+                            label: function (context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const value = context.parsed;
+                                const percent = total ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+                                return `${context.label}: ${value} (${percent})`;
+                            }
+                        }
+                    }
+                },
+                onHover: (event, elements) => {
+                    activeIndex = elements.length > 0 ? elements[0].index : -1;
+                }
+            },
+            plugins: [outerRingPlugin, centerTextPlugin]
+        });
+
+
+        // === Chart 2: Répartition des centres par programme ===
+        const centresData = {
+            labels: {{ chart_centres_labels|safe }},
+            datasets: [{
+                label: 'Centres par Programme',
+                data: {{ chart_centres_counts|safe }},
+                backgroundColor: [
+                    "#2E446A", "#59824A", "#A554B7", "#EEDC81", "#36A2EB",
+                    "#FF6384", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40",
+                    "#C9CBCF", "#1C2331", "#66BB6A", "#BA68C8", "#FFA726",
+                    "#8D6E63", "#F06292", "#7E57C2", "#0097A7", "#D4E157"
+                ],
+                hoverOffset: 10,
+            }]
+        };
+
+        new Chart(document.getElementById('chartCentres'), {
+            type: 'doughnut',
+            data: centresData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                layout: { padding: 30 },
+                animation: {
+                    animateRotate: true,
+                    animateScale: true,
+                    duration: 350,
+                    easing: 'easeOutBounce'
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        callbacks: {
+                            label: function (context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const value = context.parsed;
+                                const percent = total ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+                                return `${context.label}: ${value} (${percent})`;
+                            }
+                        }
+                    }
+                },
+                onHover: (event, elements) => {
+                    activeIndex = elements.length > 0 ? elements[0].index : -1;
+                }
+            },
+            plugins: [outerRingPlugin, centerTextPlugin]
+        });
+    });
+</script>
+
+<script>
+    const ctxSexe = document.getElementById('BarSexe').getContext('2d');
+    new Chart(ctxSexe, {
+        type: 'bar',
+        data: {
+            labels: ['Hommes', 'Femmes'],
+            datasets: [{
+                label: '',  // label vide ou à supprimer
+                data: [{{ hommes|default:0 }}, {{ femmes|default:0 }}],
+                backgroundColor: ['#3b82f6', '#ec4899']
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false  // cacher la légende
+                },
+                title: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Nombre de bénéficiaires'
+                    }
+                },
+                y: {
+                    title: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+
+</script>
+
+<script>
+    const ctxPop = document.getElementById('BarPopulation').getContext('2d');
+new Chart(ctxPop, {
+    type: 'bar',
+    data: {
+        labels: {{ labels_population|safe }},
+        datasets: [{
+            label: 'Population cible',  
+            data: {{ values_population|safe }},
+            backgroundColor: [
+                "#2E446A", "#59824A", "#A554B7", "#EEDC81", "#36A2EB",
+                "#FF6384", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40",
+                "#C9CBCF", "#1C2331"
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: true  // afficher la légende
+            },
+            title: {
+                display: false
+            }
+        },
+        scales: {
+            x: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Population cible'
+                },
+                ticks: {
+                    display: false  // cacher les valeurs (labels) de l’axe X
+                }
+            },
+            y: {
+                title: {
+                    display: false
+                }
+            }
+        }
+    }
+});
+
+</script>
+
+<script>
+    const outerRingPlugin = {
+    id: 'outerRing',
+    afterDatasetDraw(chart, args, pluginOptions) {
+        const { ctx, _active } = chart;
+        if (_active && _active.length > 0) {
+            const arc = _active[0].element;
+            ctx.save();
+            ctx.beginPath();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = arc.options.backgroundColor;
+            ctx.arc(arc.x, arc.y, arc.outerRadius + 10, arc.startAngle, arc.endAngle);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+};
+
+const centerTextPlugin = {
+    id: 'centerTextRev',
+    beforeDraw(chart) {
+        const { width, height, ctx } = chart;
+        const dataset = chart.data.datasets[0].data;
+        const colors = chart.data.datasets[0].backgroundColor;
+        const total = dataset.reduce((a, b) => a + b, 0);
+        const activeIndex = chart._active?.[0]?.index;
+
+        const value = activeIndex !== undefined ? dataset[activeIndex] : total;
+        const label = activeIndex !== undefined ? chart.data.labels[activeIndex] : 'Total';
+        const color = activeIndex !== undefined ? colors[activeIndex] : '#333';
+
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        ctx.font = 'bold 28px sans-serif';
+        ctx.fillStyle = color;
+        const percent = total ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+        ctx.fillText(percent, width / 2, height / 1.35 - 30);
+
+
+        ctx.font = 'bold 18px sans-serif';
+        const words = label.split(' ');
+        let line = '';
+        const lines = [];
+        const maxWidth = 140;
+
+        for (let n = 0; n < words.length; n++) {
+            const testLine = line + words[n] + ' ';
+            const metrics = ctx.measureText(testLine);
+            if (metrics.width > maxWidth && n > 0) {
+                lines.push(line.trim());
+                line = words[n] + ' ';
+            } else {
+                line = testLine;
+            }
+        }
+        lines.push(line.trim());
+
+        const lineHeight = 25;
+        lines.forEach((l, i) => {
+            ctx.fillText(l, width / 2, height / 1.8 + (i * lineHeight));
+        });
+
+        ctx.restore();
+    }
+};
+
+    const typeLabels = {{ labels_milieu|safe }};  // Ce sont les milieux (ex: ['Urbain', 'Rural'])
+    const typeValues = {{ total_milieu|safe }};   // Ce sont les valeurs correspondantes
+
+const ChartMilieu = new Chart(document.getElementById("ChartMilieu"), {
+    type: "doughnut",
+    data: {
+        labels: typeLabels,
+        datasets: [{
+            data: typeValues,
+            backgroundColor: ['#2E446A', '#F4A261'],
+            hoverOffset: 10
+        }]
+    },
+    options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            rotation: -90,             // départ à 12h
+            circumference: 180,        // demi cercle
+            layout: { padding: 30 },
+            animation: {
+                animateRotate: true,
+                animateScale: true,
+                duration: 350,
+                easing: 'easeOutBounce'
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    enabled: true,
+                    callbacks: {
+                        label: function (context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const value = context.parsed;
+                            const percent = total ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+                            return `${context.label}: ${value} (${percent})`;
+                        }
+                    }
+                }
+            },
+            onHover: (event, elements) => {
+                activeIndex = elements.length > 0 ? elements[0].index : -1;
+            }
+        },
+        plugins: [outerRingPlugin, centerTextPlugin]
+});
+
+
+
+</script>
+
+<script>
+    const ctxMilieu = document.getElementById('chartPopMilieu').getContext('2d');
+    const lineChart = new Chart(ctxMilieu, {
+        type: 'line',
+        data: {
+            labels: {{ labels_milieu_pop|safe }},
+            datasets: [
+                {
+                    label: 'Milieu Urbain',
+                    data: {{ urbain_values|safe }},
+                    borderColor: 'blue',
+                    backgroundColor: 'rgba(0,0,255,0.1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 6,
+                    pointHoverRadius: 10,
+                },
+                {
+                    label: 'Milieu Rural',
+                    data: {{ rural_values|safe }},
+                    borderColor: 'green',
+                    backgroundColor: 'rgba(0,255,0,0.1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 6,
+                    pointHoverRadius: 10,
+                }
+            ]
+        },
+        options: {
+            plugins: {
+                title: {
+                    display: false,
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Nombre de bénéficiaires'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Population ciblée'
+                    },
+                     ticks: {
+                        minRotation: 10,
+                        maxRotation: 0
+                    }
+                }
+            }
+        }
+    });
+    
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const labels = {{ labels_annees|safe }};
+        const evolutionData = {{ evolution_sexe_programme|safe }};
+        const ctx = document.getElementById('chartEvolutionSexeProg').getContext('2d');
+
+        let selectedProgramme = Object.keys(evolutionData)[0];
+        let selectedSexe = 'hommes';
+
+        const dataset = {
+            label: selectedProgramme + ' - ' + selectedSexe,
+            data: evolutionData[selectedProgramme][selectedSexe],
+            backgroundColor: selectedSexe === 'hommes' ? '#3B82F6' : '#EC4899'
+        };
+
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [dataset]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Année' }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Nombre de bénéficiaires' }
+                    }
+                }
+            }
+        });
+
+        // Mise à jour dynamique
+        const updateChart = () => {
+            chart.data.datasets[0].label = selectedProgramme + ' - ' + selectedSexe;
+            chart.data.datasets[0].data = evolutionData[selectedProgramme][selectedSexe];
+            chart.data.datasets[0].backgroundColor = selectedSexe === 'hommes' ? '#3B82F6' : '#EC4899';
+            chart.update();
+        };
+
+        document.getElementById('progFilter').addEventListener('change', function () {
+            selectedProgramme = this.value;
+            updateChart();
+        });
+
+        document.getElementById('sexeFilter').addEventListener('change', function () {
+            selectedSexe = this.value;
+            updateChart();
+        });
+    });
+</script>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const ctx = document.getElementById('chartSexeProg').getContext('2d');
+
+    const chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: {{ chart_sexe_labels|safe }},
+            datasets: [
+                {
+                    label: 'Hommes',
+                    data: {{ chart_sexe_hommes|safe }},
+                    backgroundColor: '#3b82f6'
+                },
+                {
+                    label: 'Femmes',
+                    data: {{ chart_sexe_femmes|safe }},
+                    backgroundColor: '#ec4899'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'top'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    title: {
+                        display: true,
+                        text: 'Programmes'
+                    },
+                    ticks: {
+                        autoSkip: false,
+                        callback: function(value, index, ticks) {
+                            const label = this.getLabelForValue(value);
+                            // Retour à la ligne toutes les 4-5 mots ou 25 caractères
+                            const words = label.split(" ");
+                            const lines = [];
+                            let line = "";
+
+                            words.forEach(word => {
+                                if ((line + word).length > 25) {
+                                    lines.push(line.trim());
+                                    line = word + " ";
+                                } else {
+                                    line += word + " ";
+                                }
+                            });
+
+                            if (line) lines.push(line.trim());
+
+                            return lines;
+                        }
+                    }
+                },
+
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Nombre de bénéficiaires'
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const ctx = document.getElementById('chartCentreProg').getContext('2d');
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: {{ chart_centres_labels|safe }},
+            datasets: [{
+                label: 'Nombre de centres',
+                data: {{ chart_centres_counts|safe }},
+                backgroundColor: '#10b981'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { mode: 'index', intersect: false }
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    title: {
+                        display: true,
+                        text: 'Programmes'
+                    },
+                    ticks: {
+                        autoSkip: false,
+                        callback: function(value, index, ticks) {
+                            const label = this.getLabelForValue(value);
+                            // Retour à la ligne toutes les 4-5 mots ou 25 caractères
+                            const words = label.split(" ");
+                            const lines = [];
+                            let line = "";
+
+                            words.forEach(word => {
+                                if ((line + word).length > 25) {
+                                    lines.push(line.trim());
+                                    line = word + " ";
+                                } else {
+                                    line += word + " ";
+                                }
+                            });
+
+                            if (line) lines.push(line.trim());
+
+                            return lines;
+                        }
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Nombre de centres'
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+
+{% endblock %}

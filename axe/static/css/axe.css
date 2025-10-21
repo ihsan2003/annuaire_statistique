@@ -1,0 +1,618 @@
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    * {
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* Variables CSS pour la cohérence */
+    :root {
+        --primary-purple: #A554B7;
+        --primary-green: #59824A;
+        --primary-blue: #2E446A;
+        --primary-yellow: #EAB308;
+        --glass-bg: rgba(255, 255, 255, 0.85);
+        --glass-border: rgba(255, 255, 255, 0.2);
+        --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.1);
+        --shadow-hover: 0 20px 40px rgba(0, 0, 0, 0.15);
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        --border-radius: 16px;
+    }
+
+    /* Body avec gradient subtil */
+    body {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    }
+
+    /* Classes responsives pour la typographie */
+    .responsive-text-xs { font-size: clamp(0.65rem, 1.5vw, 0.75rem); }
+    .responsive-text-sm { font-size: clamp(0.8rem, 2vw, 0.875rem); }
+    .responsive-text-base { font-size: clamp(0.9rem, 2.5vw, 1rem); }
+    .responsive-text-lg { font-size: clamp(1rem, 3vw, 1.125rem); }
+    .responsive-text-xl { font-size: clamp(1.1rem, 3.5vw, 1.25rem); }
+    .responsive-text-2xl { font-size: clamp(1.3rem, 4vw, 1.5rem); }
+    .responsive-text-3xl { font-size: clamp(1.5rem, 5vw, 1.875rem); }
+
+    /* Glassmorphism pour les cartes */
+    .glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-soft);
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .glass-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .glass-card:hover {
+        transform: translateY(-8px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    .glass-card:hover::before {
+        opacity: 1;
+    }
+
+    /* Animation des cartes KPI */
+    .card-animated {
+        animation: slideInUp 0.8s ease-out forwards;
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    .card-delay-1 { animation-delay: 0.1s; }
+    .card-delay-2 { animation-delay: 0.2s; }
+    .card-delay-3 { animation-delay: 0.3s; }
+    .card-delay-4 { animation-delay: 0.4s; }
+
+    @keyframes slideInUp {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes fadeInUpCustom {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* KPI Cards améliorées - Responsive */
+    .kpi-card {
+        background: linear-gradient(135deg, var(--color-start), var(--color-end));
+        border: none;
+        position: relative;
+        overflow: hidden;
+        border-radius: var(--border-radius);
+        padding: clamp(1rem, 3vw, 1.5rem);
+    }
+
+    .kpi-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: clamp(60px, 15vw, 100px);
+        height: clamp(60px, 15vw, 100px);
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        transform: translate(30%, -30%);
+    }
+
+    .kpi-purple {
+        --color-start: #A554B7;
+        --color-end: #8B5CF6;
+    }
+
+    .kpi-green {
+        --color-start: #59824A;
+        --color-end: #10B981;
+    }
+
+    .kpi-blue {
+        --color-start: #2E446A;
+        --color-end: #3B82F6;
+    }
+
+    .kpi-yellow {
+        --color-start: #EAB308;
+        --color-end: #F59E0B;
+    }
+
+    /* Animation des chiffres - Responsive */
+    .animated-number {
+        display: inline-block;
+        transition: transform 0.3s ease;
+        font-size: clamp(1.2rem, 4vw, 1.5rem);
+    }
+
+    .kpi-card:hover .animated-number {
+        transform: scale(1.1);
+    }
+
+    /* Icônes avec animation - Responsive */
+    .kpi-icon {
+        transition: var(--transition);
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+        font-size: clamp(1.5rem, 4vw, 3rem) !important;
+    }
+
+    .kpi-card:hover .kpi-icon {
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    /* Charts containers améliorés - Responsive */
+    .chart-container {
+        background: white;
+        border-radius: var(--border-radius);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--glass-border);
+        box-shadow: var(--shadow-soft);
+        position: relative;
+        transition: var(--transition);
+        padding: clamp(1rem, 3vw, 2rem);
+        min-height: 300px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Boutons d'export stylisés - Responsive */
+    .export-btn {
+        background: linear-gradient(135deg, #a554b7, #764ba2);
+        border: none;
+        border-radius: clamp(6px, 2vw, 10px);
+        padding: clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 12px);
+        color: white;
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+        font-size: clamp(0.8rem, 2vw, 0.9rem);
+    }
+
+    .export-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        transition: width 0.3s, height 0.3s;
+    }
+
+    .export-btn:hover::before {
+        width: 100px;
+        height: 100px;
+    }
+
+    .export-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(165, 84, 183, 0.4);
+    }
+
+    /* Titres avec effet gradient - Responsive */
+    .chart-title {
+        background: linear-gradient(135deg, #2D3748, #4A5568);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        position: relative;
+        font-size: clamp(1.1rem, 3vw, 1.5rem) !important;
+    }
+
+    .chart-title::after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        left: 0;
+        width: clamp(30px, 8vw, 50px);
+        height: 3px;
+        background: linear-gradient(90deg, #A554B7, #EAB308);
+        border-radius: 2px;
+    }
+
+    /* Animation des éléments à l'intérieur des cartes */
+    .card-body .card-title,
+    .card-body .card-text,
+    .card-body a {
+        opacity: 0;
+        transform: translateY(15px);
+        animation: fadeInUpCustom 0.4s ease forwards;
+    }
+
+    .card-body .card-title { animation-delay: 0.6s; }
+    .card-body .card-text { animation-delay: 0.7s; }
+    .card-body a { animation-delay: 0.8s; }
+
+    /* Loading overlay - Responsive */
+    #loading {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: clamp(1rem, 3vw, 1.25rem);
+        border-radius: 8px;
+        z-index: 1000;
+        font-size: clamp(0.9rem, 2.5vw, 1rem);
+    }
+
+    /* Selects stylisés - Responsive */
+    .custom-select,
+    select {
+        background: white;
+        border: 2px solid #e5e7eb;
+        border-radius: clamp(6px, 1.5vw, 8px);
+        padding: clamp(0.5rem, 1.5vw, 0.625rem) clamp(0.8rem, 2vw, 1rem);
+        padding-right: 2.5rem; /* Espace pour la flèche */
+        transition: all 0.3s ease;
+        appearance: none;
+        background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><path fill="%23666" d="M2 0L0 2h4zm0 5L0 3h4z"/></svg>');
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 12px;
+        font-size: clamp(0.85rem, 2vw, 0.95rem);
+        min-height: clamp(2.75rem, 6vw, 3rem);
+        height: auto; /* Permet au select de s'adapter à son contenu */
+        line-height: 1.4; /* Améliore la lisibilité */
+    }
+
+    .custom-select:focus,
+    select:focus {
+        outline: none;
+        border-color: var(--primary-purple);
+        box-shadow: 0 0 0 3px rgba(165, 84, 183, 0.1);
+    }
+
+    /* Bouton filtrer responsive */
+    .filter-btn {
+        padding: clamp(0.5rem, 2vw, 0.75rem) clamp(1rem, 3vw, 1.5rem);
+        font-size: clamp(0.8rem, 2vw, 0.9rem);
+        border-radius: clamp(6px, 1.5vw, 8px);
+        min-height: clamp(2.5rem, 6vw, 2.75rem);
+    }
+
+    /* Cartes avec hauteur adaptative */
+    .chart-card {
+        min-height: clamp(300px, 50vh, 500px);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chart-card canvas {
+        flex: 1;
+        max-height: calc(100% - 80px);
+    }
+
+    /* Responsive gaps et paddings */
+    .responsive-gap-4 { gap: clamp(0.75rem, 2vw, 1rem); }
+    .responsive-gap-6 { gap: clamp(1rem, 3vw, 1.5rem); }
+    .responsive-gap-8 { gap: clamp(1.5rem, 4vw, 2rem); }
+
+    .responsive-p-4 { padding: clamp(0.75rem, 2vw, 1rem); }
+    .responsive-p-6 { padding: clamp(1rem, 3vw, 1.5rem); }
+    .responsive-p-8 { padding: clamp(1.5rem, 4vw, 2rem); }
+
+    .responsive-my-10 { margin: clamp(2rem, 5vw, 2.5rem) 0; }
+    .responsive-mb-8 { margin-bottom: clamp(1.5rem, 4vw, 2rem); }
+
+    /* Hauteurs responsives pour les containers */
+    .h-responsive-500 {
+        height: clamp(300px, 50vh, 500px);
+    }
+
+    .h-responsive-600 {
+        height: clamp(350px, 60vh, 600px);
+    }
+
+    .h-responsive-700 {
+        height: clamp(400px, 70vh, 700px);
+    }
+
+    .h-responsive-800 {
+        height: clamp(450px, 80vh, 800px);
+    }
+
+    /* Mobile-specific adjustments */
+    @media (max-width: 640px) {
+        .kpi-card {
+            text-align: center;
+        }
+        
+        .chart-container {
+            padding: 1rem;
+            min-height: 250px;
+        }
+        
+        .mobile-stack {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.75rem;
+        }
+        
+        .mobile-full-width {
+            width: 100% !important;
+        }
+
+        .chart-title {
+            text-align: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .export-btn {
+            padding: 8px 16px;
+        }
+
+        /* Stack les éléments horizontaux sur mobile */
+        .flex.justify-between {
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .flex.justify-between .chart-title {
+            text-align: center;
+        }
+
+        .canvas-container {
+            flex: 1;
+            overflow: hidden;
+        }
+        canvas {
+            width: 100% !important;
+            height: auto !important; /* important pour éviter le débordement */
+        }
+    }
+
+    /* Tablet adjustments */
+    @media (min-width: 641px) and (max-width: 1024px) {
+        .chart-container {
+            min-height: 350px;
+        }
+    }
+
+    /* Canvas responsive */
+    canvas {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+
+    /* Flex responsive pour les filtres */
+    .responsive-flex {
+        display: flex;
+        flex-wrap: wrap;
+        gap: clamp(0.5rem, 2vw, 1rem);
+        align-items: center;
+    }
+
+    @media (max-width: 640px) {
+        .responsive-flex {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
+
+    /* Ajustements pour les pourcentages dans les KPI */
+    .kpi-percentage {
+        font-size: clamp(1rem, 3.5vw, 1.25rem);
+    }
+
+    .kpi-label {
+        font-size: clamp(0.75rem, 2vw, 0.875rem);
+    }
+
+    /* Style pour les selects avec filtres */
+    .filter-select-container {
+        position: relative;
+        display: inline-block;
+        min-width: 160px;
+    }
+
+    .filter-select {
+        background: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+        font-size: 0.875rem;
+        min-height: 2.75rem;
+        width: 100%;
+        appearance: none;
+        background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><path fill="%23666" d="M2 0L0 2h4zm0 5L0 3h4z"/></svg>');
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 12px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .filter-icon {
+        position: absolute;
+        left: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6b7280;
+        font-size: 0.875rem;
+        pointer-events: none;
+        transition: all 0.3s ease;
+        z-index: 1;
+    }
+
+    .filter-select-container:hover .filter-icon {
+        color: var(--primary-purple);
+        transform: translateY(-50%) scale(1.1);
+    }
+
+    .filter-select:hover {
+        border-color: #d1d5db;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .filter-select:focus {
+        outline: none;
+        border-color: var(--primary-purple);
+        box-shadow: 0 0 0 3px rgba(165, 84, 183, 0.1);
+    }
+
+    .filter-select:focus + .filter-icon {
+        color: var(--primary-purple);
+    }
+
+    /* Canvas container amélioré */
+        .canvas-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: calc(100% - 60px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .canvas-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        /* Responsive design pour les contrôles */
+        @media (max-width: 768px) {
+            .chart-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 1rem;
+            }
+
+            .chart-title {
+                text-align: center;
+                min-width: auto;
+            }
+
+            .chart-controls {
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+
+            .filter-select-container {
+                min-width: 140px;
+                flex: 1;
+                max-width: 200px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .chart-controls {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .filter-select-container {
+                width: 100%;
+                max-width: none;
+            }
+
+            .export-btn {
+                align-self: center;
+            }
+        }
+
+
+    /* === Accordéon stylisé === */
+
+.custom-accordion {
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: var(--transition);
+    background: var(--glass-bg);
+    box-shadow: var(--shadow-soft);
+}
+
+.custom-accordion:hover {
+    box-shadow: var(--shadow-hover);
+}
+
+.custom-accordion-header {
+    background: linear-gradient(90deg, var(--primary-purple), #8B5CF6);
+    color: white;
+    font-weight: 400;
+    padding: 1rem 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: clamp(0.8rem, 2vw, 1rem);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.custom-accordion-header:hover {
+    filter: brightness(1.05);
+}
+
+.custom-accordion-content {
+    background: white;
+    padding: 1rem 1.5rem 1.25rem;
+    animation: fadeInUpCustom 0.4s ease-out;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* === Liste des programmes === */
+
+.programme-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.programme-list li {
+    position: relative;
+    padding-left: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: #374151;
+    font-size: clamp(0.7rem, 1.5vw, 0.8rem);
+    transition: all 0.2s ease;
+}
+
+.programme-list li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    top: 0;
+    color: var(--primary-purple);
+    font-weight: bold;
+    font-size: 1em;
+    line-height: 1;
+}
+
+.programme-list li:hover {
+    color: var(--primary-purple);
+    transform: translateX(4px);
+}
+

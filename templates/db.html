@@ -1,0 +1,892 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion des Tables{% endblock %}
+{% load static %}
+
+
+{% block content %}
+
+<link rel="stylesheet" href="{% static 'css/db.css' %}">
+
+
+<!-- Toast Notifications -->
+{% if messages %}
+<div id="toastContainer" class="fixed top-6 right-6 z-50 space-y-3 max-w-sm">
+    {% for message in messages %}
+    <div class="toast bg-white rounded-lg shadow-lg p-4 border-l-4 {% if message.tags == 'success' %}border-green-500{% elif message.tags == 'error' %}border-red-500{% elif message.tags == 'warning' %}border-yellow-400{% else %}border-blue-500{% endif %}">
+        <div class="flex items-start space-x-3">
+            <div class="flex-shrink-0">
+                {% if message.tags == 'success' %}
+                <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+                </svg>
+                {% elif message.tags == 'error' %}
+                <svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"/>
+                </svg>
+                {% elif message.tags == 'warning' %}
+                <svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"/>
+                </svg>
+                {% else %}
+                <svg class="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"/>
+                </svg>
+                {% endif %}
+            </div>
+            <div class="flex-1">
+                <p class="text-sm font-medium text-gray-900">{{ message }}</p>
+            </div>
+            <button class="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors" onclick="this.closest('.toast').remove()">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
+                </svg>
+            </button>
+        </div>
+        <div class="absolute bottom-0 left-0 h-1 {% if message.tags == 'success' %}bg-green-500{% elif message.tags == 'error' %}bg-red-500{% elif message.tags == 'warning' %}bg-yellow-400{% else %}bg-blue-500{% endif %} rounded-b-lg" style="animation: progressBar 5s linear forwards;"></div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Main Container -->
+<div class="min-h-screen bg-gray-50 py-12">
+    <div class="mx-auto max-w-7xl bg-white rounded-xl shadow-lg p-6">
+        <!-- Titre -->
+        <h1 class="mt-6 mb-12 text-3xl font-bold text-gray-800 text-center">Gestion des Tables</h1>
+
+        <!-- Header Section -->
+        <div class="mb-8">
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                
+                <!--Table Selection -->
+                <div class="flex-1">
+                    {% if selected_table %}
+                    <div class="flex items-center space-x-2 text-sm text-gray-600 mb-4">
+                        <i class="fas fa-table text-purple-600"></i>
+                        <span>Table active :</span>
+                        <span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full font-medium">{{ selected_table }}</span>
+                    </div>
+                    {% endif %}
+
+                    <form method="get" class="max-w-sm">
+                        <label for="table_select" class="block text-sm font-medium text-gray-700 mb-2">
+                            Sélectionner une table :
+                        </label>
+                        <select id="table_select" name="table" 
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all" 
+                                onchange="this.form.submit()">
+                            <option disabled {% if not selected_table %}selected{% endif %}>
+                                -- Choisir une table --
+                            </option>
+                            {% for table in tables %}
+                            <option value="{{ table }}" {% if table == selected_table %}selected{% endif %}>
+                                {{ table|title }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </div>
+
+                <!-- Action Buttons -->
+                {% if selected_table %}
+                <div class="flex flex-wrap gap-3">
+                    <a href="{% url 'insert_data' %}?table={{ selected_table }}" 
+                       class="bg-[var(--primary-purple)] inline-flex items-center gap-2 text-white font-medium px-5 py-2.5 rounded-lg hover:shadow-lg transition-all">
+                        <i class="fas fa-plus"></i>
+                        <span>Nouveau</span>
+                    </a>
+                    <a href="{% url 'export_data' %}?table={{ selected_table }}" 
+                       class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2.5 rounded-lg transition-all hover:shadow-lg"
+                       title="Exporter la table '{{ selected_table }}'">
+                        <i class="fas fa-download"></i>
+                        <span>Exporter</span>
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if selected_table %}
+        
+        <!-- Controls Section -->
+        <div class="action-bar my-6 p-4">
+            <form method="get" class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <input type="hidden" name="table" value="{{ selected_table }}">
+                <input type="hidden" name="page" value="{{ rows.number|default:1 }}">
+                
+                <!-- Records per page -->
+                <div class="flex items-center space-x-3">
+                    <label for="displayCount" class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                        Afficher :
+                    </label>
+                    <select id="displayCount" name="limit" 
+                            class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all" 
+                            onchange="handleLimitChange(this.value)">
+                        <option value="5" {% if current_limit == 5 %}selected{% endif %}>5</option>
+                        <option value="10" {% if current_limit == 10 %}selected{% endif %}>10</option>
+                        <option value="20" {% if current_limit == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if current_limit == 50 %}selected{% endif %}>50</option>
+                    </select>
+                    <span class="text-sm text-gray-600 whitespace-nowrap">entrées</span>
+                </div>
+
+                <!-- Search -->
+                <div class="search-container flex-1 max-w-md">
+                    <input id="searchBox" 
+                           type="search" 
+                           placeholder="Rechercher dans la table..." 
+                           class="search-input w-full border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all" />
+                </div>
+            </form>
+        </div>
+
+        <!-- Table Section -->
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <!-- Table Wrapper (scroll horizontal si nécessaire) -->
+            <div class="overflow-x-auto w-full">
+                <table class="min-w-[1200px] divide-y divide-gray-200">
+                    <!-- Table Header -->
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-center w-12 sticky left-0 bg-gray-50 z-10">
+                                <input type="checkbox" id="selectAll" 
+                                    class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded cursor-pointer">
+                            </th>
+                            {% for col in columns %}
+                            <th class="px-6 py-3 text-left whitespace-nowrap cursor-pointer group relative" 
+                                data-col-index="{{ forloop.counter0 }}">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-gray-700 uppercase tracking-wide">
+                                        {{ col|capfirst }}
+                                    </span>
+                                    <span class="sort-icon text-gray-400 text-xs ml-2 opacity-0 group-hover:opacity-60">
+                                        <i class="fas fa-sort"></i>
+                                    </span>
+                                </div>
+                            </th>
+                            {% endfor %}
+                            <th class="px-6 py-3 text-center whitespace-nowrap sticky right-0 bg-gray-50 z-10">
+                                <span class="text-xs font-bold text-gray-700 uppercase tracking-wide">Actions</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    
+                    <!-- Table Body -->
+                    <tbody id="tableBody" class="bg-white divide-y divide-gray-200">
+                        {% for row in rows %}
+                        <tr class="hover:bg-gray-50 transition" data-id="{{ row.0 }}">
+                            <td class="px-4 py-3 text-center sticky left-0 bg-white z-10">
+                                <input type="checkbox" 
+                                    class="selectItem h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded cursor-pointer">
+                            </td>
+                            {% for value in row %}
+                            <td class="px-6 py-3 text-sm text-gray-900 whitespace-nowrap">
+                                <div class="truncate max-w-[150px]" title="{{ value }}">{{ value }}</div>
+                            </td>
+                            {% endfor %}
+                            <td class="px-6 py-3 text-center sticky right-0 bg-white z-10">
+                                <div class="flex items-center justify-center space-x-3">
+                                    <a href="{% url 'update_data' %}?table={{ selected_table }}&id={{ row.0 }}" 
+                                    class="text-amber-600 hover:text-amber-800 transition-colors" 
+                                    title="Modifier">
+                                        <i class="fas fa-edit text-lg"></i>
+                                    </a>
+                                    <button type="button" 
+                                            class="text-red-600 hover:text-red-800 transition-colors delete-btn" 
+                                            title="Supprimer"
+                                            data-id="{{ row.0 }}" 
+                                            data-table="{{ selected_table }}">
+                                        <i class="fas fa-trash text-lg"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="{{ columns|length|add:'2' }}" class="px-6 py-12 text-center">
+                                <div class="flex flex-col items-center justify-center text-gray-500">
+                                    <i class="fas fa-inbox text-4xl mb-4"></i>
+                                    <p class="text-lg font-medium">Aucune donnée trouvée</p>
+                                    <p class="text-sm">La table "{{ selected_table }}" est vide.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pagination Section -->
+        {% if selected_table and rows and rows.paginator.num_pages > 1 %}
+        <div class="pagination-container mt-6 p-4 bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                
+                <!-- Info sur les résultats -->
+                <div class="text-sm text-gray-700">
+                    <p>
+                        Affichage de 
+                        <span class="font-medium">{{ rows.start_index }}</span>
+                        à 
+                        <span class="font-medium">{{ rows.end_index }}</span>
+                        sur 
+                        <span class="font-medium">{{ rows.paginator.count }}</span>
+                        résultats
+                    </p>
+                </div>
+
+                <!-- Navigation de pagination -->
+                <nav class="pagination-nav">
+                    <div class="flex items-center space-x-2">
+                        
+                        <!-- Bouton Précédent -->
+                        {% if rows.has_previous %}
+                            <a href="?table={{ selected_table }}&limit={{ current_limit }}&page={{ rows.previous_page_number }}" 
+                               class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                                <i class="fas fa-chevron-left mr-1"></i>
+                            </a>
+                        {% else %}
+                            <span class="px-3 py-2 text-sm font-medium text-gray-300 bg-gray-100 border border-gray-200 rounded-md cursor-not-allowed">
+                                <i class="fas fa-chevron-left mr-1"></i>
+                                
+                            </span>
+                        {% endif %}
+
+                        <!-- Numéros de pages -->
+                        <div class="hidden sm:flex items-center space-x-1">
+                            {% for page_num in rows.paginator.page_range %}
+                                {% if page_num == rows.number %}
+                                    <!-- Page actuelle -->
+                                    <span class="px-3 py-2 text-sm font-medium text-white bg-purple-600 border border-purple-600 rounded-md">
+                                        {{ page_num }}
+                                    </span>
+                                {% elif page_num == 1 or page_num == rows.paginator.num_pages %}
+                                    <!-- Première et dernière page -->
+                                    <a href="?table={{ selected_table }}&limit={{ current_limit }}&page={{ page_num }}" 
+                                       class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                                        {{ page_num }}
+                                    </a>
+                                {% elif page_num >= rows.number|add:'-2' and page_num <= rows.number|add:'2' %}
+                                    <!-- Pages proches de la page actuelle -->
+                                    <a href="?table={{ selected_table }}&limit={{ current_limit }}&page={{ page_num }}" 
+                                       class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                                        {{ page_num }}
+                                    </a>
+                                {% elif page_num == 2 and rows.number > 4 %}
+                                    <!-- Points de suspension après la première page -->
+                                    <span class="px-2 py-2 text-sm text-gray-400">...</span>
+                                {% elif page_num == rows.paginator.num_pages|add:'-1' and rows.number < rows.paginator.num_pages|add:'-3' %}
+                                    <!-- Points de suspension avant la dernière page -->
+                                    <span class="px-2 py-2 text-sm text-gray-400">...</span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+
+                        <!-- Page actuelle sur mobile -->
+                        <div class="sm:hidden">
+                            <span class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md">
+                                Page {{ rows.number }} sur {{ rows.paginator.num_pages }}
+                            </span>
+                        </div>
+
+                        <!-- Bouton Suivant -->
+                        {% if rows.has_next %}
+                            <a href="?table={{ selected_table }}&limit={{ current_limit }}&page={{ rows.next_page_number }}" 
+                               class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                                <i class="fas fa-chevron-right ml-1"></i>
+                            </a>
+                        {% else %}
+                            <span class="px-3 py-2 text-sm font-medium text-gray-300 bg-gray-100 border border-gray-200 rounded-md cursor-not-allowed">
+                                <i class="fas fa-chevron-right ml-1"></i>
+                            </span>
+                        {% endif %}
+                    </div>
+                </nav>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Action Bar -->
+        {% if selected_table %}
+        <div class="action-bar mt-6 p-4">
+            <div class="flex flex-wrap gap-3 justify-center md:justify-start">
+                <button id="editSelected" 
+                        class="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-800 text-white font-medium px-6 py-2.5 rounded-lg transition-all hover:shadow-lg">
+                    <i class="fas fa-edit"></i>
+                    <span>Modifier sélection</span>
+                </button>
+                
+                <button id="openBulkDeleteModal" 
+                        class="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-2.5 rounded-lg transition-all hover:shadow-lg">
+                    <i class="fas fa-trash"></i>
+                    <span>Supprimer sélection</span>
+                </button>
+                
+                <button id="exportSelected" 
+                        class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-6 py-2.5 rounded-lg transition-all hover:shadow-lg">
+                    <i class="fas fa-download"></i>
+                    <span>Exporter sélection</span>
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div id="DeleteModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="modal-content bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+        <div class="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
+            <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+        </div>
+        <h3 class="text-xl font-bold text-center mb-2">Confirmer la suppression</h3>
+        <p class="text-gray-600 text-center mb-6">Cette action est irréversible. Êtes-vous sûr de vouloir supprimer cet enregistrement ?</p>
+        <div class="flex justify-end space-x-3">
+            <button id="cancelDelete" 
+                    class="px-5 py-2.5 rounded-lg bg-gray-200 hover:bg-gray-300 font-medium transition-colors">
+                Annuler
+            </button>
+            <form id="deleteForm" method="post" class="inline">
+                {% csrf_token %}
+                <button type="submit" 
+                        class="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors">
+                    Supprimer
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Delete Modal -->
+<div id="confirmDeleteModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="modal-content bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+        <div class="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
+            <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+        </div>
+        <h3 class="text-xl font-bold text-center mb-2">Suppression multiple</h3>
+        <p class="text-gray-600 text-center mb-6">Êtes-vous sûr de vouloir supprimer les enregistrements sélectionnés ?</p>
+        <div class="flex justify-end space-x-3">
+            <button id="cancelBulkDelete" 
+                    class="px-5 py-2.5 rounded-lg bg-gray-200 hover:bg-gray-300 font-medium transition-colors">
+                Annuler
+            </button>
+            <button id="confirmBulkDelete" 
+                    class="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors">
+                Confirmer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Scroll to Top Button -->
+<button id="scrollTopBtn" class="fab" title="Retour en haut">
+    <i class="fas fa-arrow-up"></i>
+</button>
+
+<!-- Bulk Delete Form (Hidden) -->
+<form id="bulkDeleteForm" method="post" action="{% url 'bulk_delete_data' %}" class="hidden">
+    {% csrf_token %}
+    <input type="hidden" name="table" value="{{ selected_table }}">
+    <input type="hidden" id="selected_ids" name="ids">
+</form>
+
+<!-- JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize components
+    initTableSorting();
+    initCheckboxes();
+    initModals();
+    initSearch();
+    initScrollTop();
+    initToasts();
+    initActionButtons();
+    initPagination();
+});
+
+// Pagination Management
+function initPagination() {
+    // Fonction pour préserver les paramètres lors de la pagination
+    window.preserveUrlParams = function(newParams = {}) {
+        const url = new URL(window.location);
+        const params = new URLSearchParams(url.search);
+        
+        // Ajouter/modifier les nouveaux paramètres
+        Object.keys(newParams).forEach(key => {
+            if (newParams[key] !== null && newParams[key] !== undefined) {
+                params.set(key, newParams[key]);
+            } else {
+                params.delete(key);
+            }
+        });
+        
+        return `${url.pathname}?${params.toString()}`;
+    };
+    
+    // Gérer le changement de limite avec conservation de la position approximative
+    window.handleLimitChange = function(newLimit) {
+        const url = new URL(window.location);
+        const params = new URLSearchParams(url.search);
+        
+        // Calculer la nouvelle page approximative basée sur l'index de départ actuel
+        const currentPage = parseInt(params.get('page') || '1');
+        const currentLimit = parseInt(params.get('limit') || '10');
+        const currentStartIndex = (currentPage - 1) * currentLimit + 1;
+        
+        // Calculer la nouvelle page
+        const newPage = Math.max(1, Math.ceil(currentStartIndex / newLimit));
+        
+        // Rediriger avec les nouveaux paramètres
+        window.location.href = preserveUrlParams({
+            limit: newLimit,
+            page: newPage
+        });
+    };
+}
+
+// Table Sorting
+function initTableSorting() {
+    const table = document.querySelector('table');
+    if (!table) return;
+    
+    const headers = table.querySelectorAll('thead th[data-col-index]');
+    const tbody = table.querySelector('tbody');
+    let sortDirection = null;
+    let sortedColIndex = null;
+
+    headers.forEach(header => {
+        header.addEventListener('click', () => {
+            const colIndex = parseInt(header.getAttribute('data-col-index'));
+            
+            // Update sort direction
+            if (sortedColIndex === colIndex) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : (sortDirection === 'desc' ? null : 'asc');
+            } else {
+                sortedColIndex = colIndex;
+                sortDirection = 'asc';
+            }
+
+            // Reset all sort indicators
+            headers.forEach(h => {
+                const icon = h.querySelector('.sort-icon i');
+                if (icon) {
+                    icon.className = 'fas fa-sort';
+                    h.querySelector('.sort-icon').classList.remove('active');
+                }
+            });
+
+            // Update current sort indicator
+            const currentIcon = header.querySelector('.sort-icon');
+            const icon = currentIcon.querySelector('i');
+            if (sortDirection) {
+                currentIcon.classList.add('active');
+                icon.className = sortDirection === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+            }
+
+            // Sort table rows
+            if (sortDirection) {
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                rows.sort((rowA, rowB) => {
+                    const cellA = rowA.children[colIndex + 1].textContent.trim();
+                    const cellB = rowB.children[colIndex + 1].textContent.trim();
+
+                    // Try numeric comparison
+                    const numA = parseFloat(cellA.replace(/[^0-9.\-]/g, ''));
+                    const numB = parseFloat(cellB.replace(/[^0-9.\-]/g, ''));
+
+                    if (!isNaN(numA) && !isNaN(numB)) {
+                        return sortDirection === 'asc' ? numA - numB : numB - numA;
+                    }
+
+                    // Text comparison
+                    return sortDirection === 'asc'
+                        ? cellA.localeCompare(cellB, undefined, { sensitivity: 'base' })
+                        : cellB.localeCompare(cellA, undefined, { sensitivity: 'base' });
+                });
+
+                // Update table
+                tbody.innerHTML = '';
+                rows.forEach(row => tbody.appendChild(row));
+            }
+        });
+    });
+}
+
+// Checkbox Management
+function initCheckboxes() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    if (!selectAllCheckbox) return;
+
+    selectAllCheckbox.addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.selectItem');
+        checkboxes.forEach(cb => {
+            cb.checked = this.checked;
+        });
+        updateActionButtons();
+    });
+
+    // Individual checkboxes
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('selectItem')) {
+            updateSelectAllCheckbox();
+            updateActionButtons();
+        }
+    });
+}
+
+function updateSelectAllCheckbox() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.selectItem');
+    const checkedBoxes = document.querySelectorAll('.selectItem:checked');
+    
+    if (checkedBoxes.length === 0) {
+        selectAllCheckbox.indeterminate = false;
+        selectAllCheckbox.checked = false;
+    } else if (checkedBoxes.length === checkboxes.length) {
+        selectAllCheckbox.indeterminate = false;
+        selectAllCheckbox.checked = true;
+    } else {
+        selectAllCheckbox.indeterminate = true;
+        selectAllCheckbox.checked = false;
+    }
+}
+
+function updateActionButtons() {
+    const checkedBoxes = document.querySelectorAll('.selectItem:checked');
+    const actionButtons = document.querySelectorAll('#editSelected, #openBulkDeleteModal, #exportSelected');
+    
+    actionButtons.forEach(btn => {
+        if (checkedBoxes.length > 0) {
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            btn.disabled = false;
+        } else {
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            btn.disabled = true;
+        }
+    });
+}
+
+// Modal Management
+function initModals() {
+    // Delete Modal
+    const deleteModal = document.getElementById('DeleteModal');
+    const deleteForm = document.getElementById('deleteForm');
+    const cancelDeleteBtn = document.getElementById('cancelDelete');
+
+    // Delete buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.delete-btn')) {
+            const btn = e.target.closest('.delete-btn');
+            const id = btn.getAttribute('data-id');
+            const table = btn.getAttribute('data-table');
+            deleteForm.action = `{% url 'delete_data' %}?table=${table}&id=${id}`;
+            showModal(deleteModal);
+        }
+    });
+
+    cancelDeleteBtn?.addEventListener('click', () => hideModal(deleteModal));
+
+    // Bulk Delete Modal
+    const bulkDeleteModal = document.getElementById('confirmDeleteModal');
+    const openBulkDeleteBtn = document.getElementById('openBulkDeleteModal');
+    const cancelBulkDeleteBtn = document.getElementById('cancelBulkDelete');
+    const confirmBulkDeleteBtn = document.getElementById('confirmBulkDelete');
+
+    openBulkDeleteBtn?.addEventListener('click', function() {
+        const checkedBoxes = document.querySelectorAll('.selectItem:checked');
+        if (checkedBoxes.length === 0) {
+            showToast('Veuillez sélectionner au moins un enregistrement.', 'warning');
+            return;
+        }
+        showModal(bulkDeleteModal);
+    });
+
+    cancelBulkDeleteBtn?.addEventListener('click', () => hideModal(bulkDeleteModal));
+    confirmBulkDeleteBtn?.addEventListener('click', submitBulkDelete);
+
+    // Close modals on background click
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('modal-overlay')) {
+            hideModal(e.target);
+        }
+    });
+}
+
+function showModal(modal) {
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function hideModal(modal) {
+    modal.classList.add('hidden');
+    document.body.style.overflow = 'auto';
+}
+
+function submitBulkDelete() {
+    const checkedBoxes = document.querySelectorAll('.selectItem:checked');
+    const ids = Array.from(checkedBoxes).map(cb => cb.closest('tr').dataset.id);
+    
+    const form = document.getElementById('bulkDeleteForm');
+    const idsInput = document.getElementById('selected_ids');
+    idsInput.value = JSON.stringify(ids);
+    
+    form.submit();
+}
+
+// Search Functionality
+function initSearch() {
+    const searchBox = document.getElementById('searchBox');
+    if (!searchBox) return;
+
+    let searchTimeout;
+    searchBox.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            const filter = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#tableBody tr');
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const isVisible = text.includes(filter);
+                row.style.display = isVisible ? '' : 'none';
+                if (isVisible) visibleCount++;
+            });
+
+            // Update empty state
+            updateEmptyState(visibleCount);
+        }, 300);
+    });
+}
+
+function updateEmptyState(visibleCount) {
+    const tbody = document.getElementById('tableBody');
+    let emptyRow = tbody.querySelector('.empty-search-row');
+    
+    if (visibleCount === 0 && !emptyRow) {
+        const colCount = document.querySelectorAll('thead th').length;
+        emptyRow = document.createElement('tr');
+        emptyRow.className = 'empty-search-row';
+        emptyRow.innerHTML = `
+            <td colspan="${colCount}" class="px-6 py-12 text-center">
+                <div class="flex flex-col items-center justify-center text-gray-500">
+                    <i class="fas fa-search text-4xl mb-4"></i>
+                    <p class="text-lg font-medium">Aucun résultat trouvé</p>
+                    <p class="text-sm">Essayez de modifier vos critères de recherche.</p>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(emptyRow);
+    } else if (visibleCount > 0 && emptyRow) {
+        emptyRow.remove();
+    }
+}
+
+// Scroll to Top
+function initScrollTop() {
+    const scrollBtn = document.getElementById('scrollTopBtn');
+    if (!scrollBtn) return;
+
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 300) {
+            scrollBtn.classList.add('show');
+        } else {
+            scrollBtn.classList.remove('show');
+        }
+    });
+
+    scrollBtn.addEventListener('click', () => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
+}
+
+// Toast Management
+function initToasts() {
+    const toasts = document.querySelectorAll('.toast');
+    toasts.forEach(toast => {
+        setTimeout(() => {
+            toast.classList.add('fade-out');
+            setTimeout(() => toast.remove(), 300);
+        }, 5000);
+    });
+}
+
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer') || createToastContainer();
+    
+    const toast = document.createElement('div');
+    toast.className = `toast bg-white rounded-lg shadow-lg p-4 border-l-4 ${getToastColor(type)}`;
+    
+    toast.innerHTML = `
+        <div class="flex items-start space-x-3">
+            <div class="flex-shrink-0">
+                ${getToastIcon(type)}
+            </div>
+            <div class="flex-1">
+                <p class="text-sm font-medium text-gray-900">${message}</p>
+            </div>
+            <button class="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors" onclick="this.closest('.toast').remove()">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
+                </svg>
+            </button>
+        </div>
+        <div class="absolute bottom-0 left-0 h-1 ${getToastBgColor(type)} rounded-b-lg" style="animation: progressBar 5s linear forwards;"></div>
+    `;
+    
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.className = 'fixed top-6 right-6 z-50 space-y-3 max-w-sm';
+    document.body.appendChild(container);
+    return container;
+}
+
+function getToastColor(type) {
+    const colors = {
+        success: 'border-green-500',
+        error: 'border-red-500',
+        warning: 'border-yellow-400',
+        info: 'border-blue-500'
+    };
+    return colors[type] || colors.info;
+}
+
+function getToastBgColor(type) {
+    const colors = {
+        success: 'bg-green-500',
+        error: 'bg-red-500',
+        warning: 'bg-yellow-400',
+        info: 'bg-blue-500'
+    };
+    return colors[type] || colors.info;
+}
+
+function getToastIcon(type) {
+    const icons = {
+        success: '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/></svg>',
+        error: '<svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"/></svg>',
+        warning: '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"/></svg>',
+        info: '<svg class="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"/></svg>'
+    };
+    return icons[type] || icons.info;
+}
+
+// Action Buttons
+function initActionButtons() {
+    // Edit Selected
+    const editSelectedBtn = document.getElementById('editSelected');
+    editSelectedBtn?.addEventListener('click', function() {
+        const tableName = "{{ selected_table }}";
+        const selectedCheckboxes = document.querySelectorAll('.selectItem:checked');
+        
+        if (selectedCheckboxes.length === 0) {
+            showToast('Aucun enregistrement sélectionné.', 'warning');
+            return;
+        }
+
+        const ids = Array.from(selectedCheckboxes).map(cb => 
+            cb.closest('tr').dataset.id
+        ).join(',');
+
+        const updateUrl = `{% url 'update_multiple' %}?table=${tableName}&ids=${ids}`;
+        window.location.href = updateUrl;
+    });
+
+    // Export Selected
+    const exportSelectedBtn = document.getElementById('exportSelected');
+    exportSelectedBtn?.addEventListener('click', function() {
+        const tableName = "{{ selected_table }}";
+        const selectedCheckboxes = document.querySelectorAll('.selectItem:checked');
+
+        const ids = Array.from(selectedCheckboxes).map(cb => 
+            cb.closest('tr').dataset.id
+        ).join(',');
+
+        const exportUrl = ids
+            ? `{% url 'export_multiple' %}?table=${tableName}&ids=${ids}`
+            : `{% url 'export_multiple' %}?table=${tableName}`;
+
+        window.location.href = exportUrl;
+    });
+
+    // Initial state
+    updateActionButtons();
+}
+
+// Loading State Management
+function showLoading(element) {
+    const originalContent = element.innerHTML;
+    element.setAttribute('data-original-content', originalContent);
+    element.innerHTML = '<div class="spinner inline-block mr-2"></div>Chargement...';
+    element.disabled = true;
+}
+
+function hideLoading(element) {
+    const originalContent = element.getAttribute('data-original-content');
+    if (originalContent) {
+        element.innerHTML = originalContent;
+        element.removeAttribute('data-original-content');
+    }
+    element.disabled = false;
+}
+
+// Keyboard Shortcuts
+document.addEventListener('keydown', function(e) {
+    // Escape key closes modals
+    if (e.key === 'Escape') {
+        const openModal = document.querySelector('.modal-overlay:not(.hidden)');
+        if (openModal) {
+            hideModal(openModal);
+        }
+    }
+    
+    // Ctrl+A selects all (when focused on table)
+    if (e.ctrlKey && e.key === 'a' && e.target.closest('table')) {
+        e.preventDefault();
+        const selectAllCheckbox = document.getElementById('selectAll');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = !selectAllCheckbox.checked;
+            selectAllCheckbox.dispatchEvent(new Event('change'));
+        }
+    }
+});
+
+// Auto-save search preferences
+function saveSearchPreference() {
+    const searchValue = document.getElementById('searchBox')?.value;
+    if (searchValue) {
+        sessionStorage.setItem('tableSearch', searchValue);
+    }
+}
+
+function loadSearchPreference() {
+    const savedSearch = sessionStorage.getItem('tableSearch');
+    const searchBox = document.getElementById('searchBox');
+    if (savedSearch && searchBox) {
+        searchBox.value = savedSearch;
+        searchBox.dispatchEvent(new Event('input'));
+    }
+}
+
+// Initialize search preferences
+document.addEventListener('DOMContentLoaded', loadSearchPreference);
+window.addEventListener('beforeunload', saveSearchPreference);
+</script>
+
+{% endblock %}

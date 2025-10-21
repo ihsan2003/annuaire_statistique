@@ -1,0 +1,908 @@
+{% extends "base.html" %}
+
+{% block title %}Beneficiaires{% endblock %}
+{% load static %}
+{% block content %}
+
+<link rel="stylesheet" href="{% static 'css/beneficiaire.css' %}">
+
+
+<div id="loading">Génération du PDF en cours...</div>
+
+<!-- KPI Cards avec gestion des états vides -->
+<section class="w-full mx-auto responsive-my-10">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 responsive-gap-6">
+        
+        <!-- Total Bénéficiaires -->
+        <div class="kpi-card {% if data_status.state == 'empty' %}kpi-card empty{% else %}kpi-purple{% endif %} text-white rounded-2xl shadow-lg text-center card-animated card-delay-1">
+            {% if data_status.state == 'empty' %}
+                <div class="kpi-empty-state">
+                    <div class="kpi-empty-icon">📊</div>
+                    <div class="kpi-empty-text">Aucune donnée</div>
+                </div>
+            {% else %}
+                <i class="fa-solid fa-user-group kpi-icon mb-3"></i>
+                <h5 class="responsive-text-2xl font-bold mb-2">
+                    <span class="animated-number" data-value="{{ beneficiaires_count }}">{{ beneficiaires_count }}</span>
+                </h5>
+                <p class="responsive-text-sm font-medium opacity-90">Total des Bénéficiaires</p>
+            {% endif %}
+        </div>
+
+        <!-- Pourcentage Femmes/Hommes -->
+        <div class="kpi-card {% if data_status.state == 'empty' %}kpi-card empty{% else %}kpi-green{% endif %} text-white rounded-2xl shadow-lg card-animated card-delay-2">
+            {% if data_status.state == 'empty' %}
+                <div class="kpi-empty-state">
+                    <div class="kpi-empty-icon">👥</div>
+                    <div class="kpi-empty-text">Données indisponibles</div>
+                </div>
+            {% else %}
+                <i class="fa-solid fa-restroom kpi-icon mb-3"></i>
+                <div class="flex justify-between responsive-text-sm gap-2">
+                    <div class="text-center w-1/2">
+                        <h5 class="kpi-percentage font-bold mb-1">
+                            <span class="animated-number" data-value="{{ pourcentage_hommes }}">{{ pourcentage_hommes }}</span>%
+                        </h5>
+                        <p class="kpi-label font-medium opacity-90">Hommes</p>
+                    </div>
+                    <div class="text-center w-1/2">
+                        <h5 class="kpi-percentage font-bold mb-1">
+                            <span class="animated-number" data-value="{{ pourcentage_femmes }}">{{ pourcentage_femmes }}</span>%
+                        </h5>
+                        <p class="kpi-label font-medium opacity-90">Femmes</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Milieu Urbain vs Rural -->
+        <div class="kpi-card {% if data_status.state == 'empty' %}kpi-card empty{% else %}kpi-blue{% endif %} text-white rounded-2xl shadow-lg card-animated card-delay-3">
+            {% if data_status.state == 'empty' %}
+                <div class="kpi-empty-state">
+                    <div class="kpi-empty-icon">🏙️</div>
+                    <div class="kpi-empty-text">En attente de données</div>
+                </div>
+            {% else %}
+                <i class="fa-solid fa-earth-africa kpi-icon mb-3 block text-center"></i>
+                <div class="flex justify-between responsive-text-sm gap-2">
+                    <div class="text-center w-1/2">
+                        <h5 class="kpi-percentage font-bold mb-1">
+                            <span class="animated-number" data-value="{{ benefic_urbain }}">{{ benefic_urbain }}</span>
+                        </h5>
+                        <p class="kpi-label font-medium opacity-90">Urbain</p>
+                    </div>
+                    <div class="text-center w-1/2">
+                        <h5 class="kpi-percentage font-bold mb-1">
+                            <span class="animated-number" data-value="{{ benefic_rural }}">{{ benefic_rural }}</span>
+                        </h5>
+                        <p class="kpi-label font-medium opacity-90">Rural</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Nombre de types de populations -->
+        <div class="kpi-card {% if data_status.state == 'empty' %}kpi-card empty{% else %}kpi-yellow{% endif %} text-white rounded-2xl shadow-lg text-center card-animated card-delay-4">
+            {% if data_status.state == 'empty' %}
+                <div class="kpi-empty-state">
+                    <div class="kpi-empty-icon">🎯</div>
+                    <div class="kpi-empty-text">Aucun résultat</div>
+                </div>
+            {% else %}
+                <i class="fa-solid fa-people-group kpi-icon mb-3"></i>
+                <h5 class="responsive-text-2xl font-bold mb-2">
+                    <span class="animated-number" data-value="{{ nombre_pop }}">{{ nombre_pop }}</span>
+                </h5>
+                <p class="responsive-text-sm font-medium opacity-90">Populations Cibles</p>
+            {% endif %}
+        </div>
+
+    </div>
+</section>
+
+<!-- Message d'état global si aucune donnée -->
+{% if data_status.state == 'empty' %}
+<section class="w-full mx-auto responsive-mb-8">
+    <div class="chart-container bg-white rounded shadow text-center responsive-p-8">
+        <div class="empty-state show">
+            <div class="empty-icon">🔍</div>
+            <div class="empty-message">{{ data_status.message }}</div>
+            <div class="empty-submessage">{{ data_status.suggestion }}</div>
+            <div style="margin-top: clamp(1.5rem, 4vw, 2rem); display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                <a href="{% url 'beneficiaires' %}" class="empty-action">Réinitialiser les filtres</a>
+                <button class="empty-action" onclick="location.reload()">Actualiser la page</button>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- Filtres -->
+<section class="w-full mx-auto responsive-mb-8 responsive-p-4 bg-white rounded shadow">
+    <form method="get" action="{% url 'beneficiaires' %}" class="responsive-flex justify-end mobile-stack">
+        <select name="annee" id="annee-select" class="mobile-full-width">
+            <option value="">-- Année --</option>
+            {% for annee in annees %}
+                <option value="{{ annee.id_periodicite }}" {% if selected_annee == annee.id_periodicite|stringformat:"s" %}selected{% endif %}>
+                    {{ annee.id_periodicite }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <select name="region" id="region-select" class="mobile-full-width">
+            <option value="">-- Région --</option>
+            {% for region in regions %}
+                <option value="{{ region.id_region }}" {% if selected_region == region.id_region|stringformat:"s" %}selected{% endif %}>
+                    {{ region.region }}
+                </option>
+            {% endfor %}
+        </select>
+
+       <select name="delegation" id="delegation-select" class="mobile-full-width" disabled>
+            <option value="">-- Délégation --</option>
+            {% for deleg in delegations %}
+                {% if not selected_region or deleg.id_region == selected_region|add:""|stringformat:"s" %}
+                    <option value="{{ deleg.id_delegation }}" {% if selected_delegation == deleg.id_delegation|stringformat:"s" %}selected{% endif %}>
+                        {{ deleg.delegation }}
+                    </option>
+                {% endif %}
+            {% endfor %}
+        </select>
+
+        <button type="submit" class="bg-[#A554B7] text-white filter-btn hover:bg-purple-700 transition mobile-full-width">
+            Filtrer
+        </button>
+    </form>
+</section>
+
+<!-- Graphiques avec gestion des états vides -->
+{% if data_status.state != 'empty' %}
+<section class="w-full mx-auto space-y-8">
+    <div class="grid grid-cols-1 lg:grid-cols-2 responsive-gap-6">
+        <!-- Répartition par Sexe -->
+        <div class="chart-container bg-white rounded shadow h-responsive-600 w-full">
+            {% if data_status.state == 'partial' or hommes == 0 and femmes == 0 %}
+                <div class="empty-state show">
+                    <div class="empty-icon">📊</div>
+                    <div class="empty-message">Aucune donnée</div>
+                </div>
+            {% else %}
+                <div class="flex justify-between items-center mb-4">
+                    <h1 class="chart-title">Répartition par Sexe</h1>
+                    <button class="export-btn" onclick="exportChartToPDF('chartSexe', 'Répartition par Sexe', 'doughnut')" title="Exporter en PDF">
+                        <i class="fa-solid fa-download"></i>
+                    </button>
+                </div>
+                <div style="position: relative; height: calc(100% - 40px);">
+                    <canvas id="chartSexe"></canvas>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Répartition par Population -->
+        <div class="chart-container bg-white rounded shadow h-responsive-600 w-full">
+            {% if not population_cible_data or population_cible_data|length == 0 %}
+                <div class="empty-state show">
+                    <div class="empty-icon">📊</div>
+                    <div class="empty-message">Aucune donnée</div>
+                </div>
+            {% else %}
+                <div class="flex justify-between items-center mb-4">
+                    <h1 class="chart-title">Répartition par Population</h1>
+                    <button class="export-btn" onclick="exportChartToPDF('chartPopulation', 'Répartition par Population Cible', 'doughnut')" title="Exporter en PDF">
+                        <i class="fa-solid fa-download"></i>
+                    </button>            
+                </div>
+                <div style="position: relative; height: calc(100% - 40px);">
+                    <canvas id="chartPopulation"></canvas>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 responsive-gap-6">
+        <!-- Nombre des Bénéficiaires par Sexe -->
+        <div class="chart-container bg-white rounded shadow h-responsive-500 w-full">
+            {% if data_status.state == 'partial' or hommes == 0 and femmes == 0 %}
+                <div class="empty-state show">
+                    <div class="empty-icon">📊</div>
+                    <div class="empty-message">Aucune donnée</div>
+                </div>
+            {% else %}
+                <div class="flex justify-between items-center mb-4">
+                    <h1 class="chart-title">Nombre des Bénéficiaires par Sexe</h1>
+                    <button class="export-btn" onclick="exportChartToPDF('BarSexe', 'Nombre par Sexe', 'bar')" title="Exporter en PDF">
+                        <i class="fa-solid fa-download"></i>
+                    </button>
+                </div>
+                <div style="position: relative; height: calc(100% - 80px);">
+                    <canvas id="BarSexe"></canvas>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Nombre des Bénéficiaires par Population -->
+        <div class="chart-container bg-white rounded shadow h-responsive-500 w-full">
+            {% if not population_cible_data or population_cible_data|length == 0 %}
+                <div class="empty-state show">
+                    <div class="empty-icon">📊</div>
+                    <div class="empty-message">Aucune donnée</div>
+                </div>
+            {% else %}
+                <div class="flex justify-between items-center mb-4">
+                    <h1 class="chart-title">Nombre des Bénéficiaires par Population</h1>
+                    <button class="export-btn" onclick="exportChartToPDF('BarPopulation', 'Nombre par Population', 'bar')" title="Exporter en PDF">
+                        <i class="fa-solid fa-download"></i>
+                    </button>    
+                </div>
+                <div style="position: relative; height: calc(100% - 80px);">
+                    <canvas id="BarPopulation"></canvas>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Graphique de répartition avec filtre -->
+    <div class="chart-container bg-white rounded shadow h-responsive-700 w-full">
+        <div class="chart-header">
+            <h2 class="chart-title">Répartition des Bénéficiaires</h2>
+            <div class="chart-controls">
+                <div class="filter-select-container">
+                    <select id="repartitionFilter" class="filter-select">
+                        <option value="total">Total</option>
+                        <option value="hommes">Hommes</option>
+                        <option value="femmes">Femmes</option>
+                        <option value="urbain">Urbain</option>
+                        <option value="rural">Rural</option>
+                        {% for pop in populations_labels %}
+                            <option value="{{ pop }}">{{ pop }}</option>
+                        {% endfor %}
+                    </select>
+                    <i class="fa-solid fa-filter filter-icon"></i>
+                </div>
+                <button class="export-btn" onclick="exportChartToPDF('chartRepartitionBenefic', 'Répartition des Bénéficiaires', 'line')" title="Exporter en PDF">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="chartRepartitionBenefic" class="w-full"></canvas>
+        </div>
+        
+        <!-- État vide pour ce graphique spécifiquement -->
+        <div class="empty-state" id="repartitionEmptyState">
+            <div class="empty-icon">📈</div>
+            <div class="empty-message">Aucune donnée de répartition disponible</div>
+            <div class="empty-submessage">Essayez de sélectionner différents filtres ou une autre période</div>
+            <button class="empty-action" onclick="document.getElementById('repartitionFilter').value='total'; updateRepartitionChart();">Réinitialiser le filtre</button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 responsive-gap-6">
+        <!-- Répartition par Milieu -->
+        <div class="chart-container bg-white rounded shadow h-responsive-600 w-full">
+            {% if not labels_milieu or labels_milieu == '[]' %}
+                <div class="empty-state show">
+                    <div class="empty-icon">📊</div>
+                    <div class="empty-message">Aucune donnée</div>
+                </div>
+            {% else %}
+                <div class="flex justify-between items-center mb-4">
+                    <h1 class="chart-title">Répartition des Bénéficiaires par Milieu</h1>
+                    <button class="export-btn" onclick="exportChartToPDF('ChartMilieu', 'Répartition des Bénéficiaires par Milieu', 'doughnut')" title="Exporter en PDF">
+                        <i class="fa-solid fa-download"></i>
+                    </button> 
+                </div>
+                <div style="position: relative; height: calc(100% - 80px);">
+                    <canvas id="ChartMilieu"></canvas>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Population et Milieu -->
+        <div class="chart-container bg-white rounded shadow h-responsive-600 col-span-1 lg:col-span-2 w-full">
+            {% if not labels_milieu_pop or labels_milieu_pop == '[]' %}
+                <div class="empty-state show">
+                    <div class="empty-icon">📊</div>
+                    <div class="empty-message">Aucune donnée</div>
+                </div>
+            {% else %}
+                <div class="flex justify-between items-center mb-4">
+                    <h1 class="chart-title">Nombre des Bénéficiaires par Population et Milieu</h1>
+                    <button class="export-btn" onclick="exportChartToPDF('chartPopMilieu', 'Nombre des Bénéficiaires par Population et Milieu', 'line')" title="Exporter en PDF">
+                        <i class="fa-solid fa-download"></i>
+                    </button> 
+                </div>
+                <div style="position: relative; height: calc(100% - 80px);">
+                    <canvas id="chartPopMilieu"></canvas>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Graphique d'évolution -->
+    <div class="chart-container bg-white rounded shadow h-responsive-800 w-full">
+        <div class="chart-header">
+            <h1 class="chart-title">Évolution du nombre des Bénéficiaires au fil du temps</h1>
+            <div class="chart-controls">
+                <div class="filter-select-container">
+                    <select id="evolutionFilter" class="filter-select">
+                        <option value="total">Total</option>
+                        <option value="hommes">Hommes</option>
+                        <option value="femmes">Femmes</option>
+                        <option value="urbain">Urbain</option>
+                        <option value="rural">Rural</option>
+                        {% for pop in populations_labels %}
+                            <option value="{{ pop }}">{{ pop }}</option>
+                        {% endfor %}
+                    </select>
+                    <i class="fa-solid fa-filter filter-icon"></i>
+                </div>
+                <button class="export-btn" onclick="exportChartToPDF('chartEvolutionBenefic', 'Évolution des Bénéficiaires', 'bar')" title="Exporter en PDF">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="chartEvolutionBenefic" class="w-full"></canvas>
+        </div>
+
+        <!-- État vide pour l'évolution -->
+        <div class="empty-state" id="evolutionEmptyState">
+            <div class="empty-icon">📈</div>
+            <div class="empty-message">Aucune donnée d'évolution</div>
+            <div class="empty-submessage">Les données temporelles ne sont pas disponibles pour cette sélection</div>
+            <button class="empty-action" onclick="location.reload()">Actualiser les données</button>
+        </div>
+    </div>
+
+</section>
+{% endif %}
+
+<!-- Scripts -->
+<script src="{% static 'js/CountAnimation.js' %}"></script>
+<script src="{% static 'js/delegationFiltre.js' %}"></script>
+<script src="{% static 'js/export.js' %}"></script>
+
+
+<!-- Gestion des états vides pour les graphiques dynamiques -->
+<script>
+// Fonction pour afficher/masquer les états vides
+function toggleEmptyState(containerId, isEmpty) {
+    const container = document.getElementById(containerId);
+    const canvas = container.querySelector('canvas');
+    const emptyState = container.querySelector('.empty-state');
+    
+    if (isEmpty) {
+        if (canvas) canvas.style.display = 'none';
+        if (emptyState) emptyState.classList.add('show');
+    } else {
+        if (canvas) canvas.style.display = 'block';
+        if (emptyState) emptyState.classList.remove('show');
+    }
+}
+
+// Fonction pour vérifier si les données sont vides
+function isDataEmpty(data) {
+    if (!data) return true;
+    if (Array.isArray(data)) return data.length === 0 || data.every(val => val === 0);
+    return false;
+}
+
+// Fonction d'aide pour les filtres
+function showFilters() {
+    const anneeSelect = document.getElementById('annee-select');
+    const regionSelect = document.getElementById('region-select');
+    
+    // Focus sur le premier filtre
+    if (anneeSelect) anneeSelect.focus();
+    
+    // Optionnel : faire défiler vers les filtres
+    const filterSection = document.querySelector('form[action*="beneficiaires"]');
+    if (filterSection) {
+        filterSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+</script>
+
+<!-- Scripts des graphiques existants avec gestion états vides -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dataStatus = '{{ data_status.state }}';
+    
+    // Ne pas initialiser les graphiques si pas de données
+    if (dataStatus === 'empty') {
+        console.log('Aucune donnée disponible - graphiques non initialisés');
+        return;
+    }
+    
+    // Animation des compteurs seulement si il y a des données
+    const hommesCount = {{ hommes|default:0 }};
+    const femmesCount = {{ femmes|default:0 }};
+    
+    // Initialiser les graphiques seulement s'il y a des données
+    if (hommesCount > 0 || femmesCount > 0) {
+        initializeGenderCharts();
+    }
+    
+    // Vérifier les autres données
+    const populationData = {{ population_cible_data|safe }};
+    if (populationData && populationData.length > 0) {
+        initializePopulationCharts();
+    }
+    
+    const milieuLabels = {{ labels_milieu|safe }};
+    if (milieuLabels && milieuLabels.length > 0) {
+        initializeMilieuCharts();
+    }
+});
+
+function initializeGenderCharts() {
+    const hommesCount = {{ hommes|default:0 }};
+    const femmesCount = {{ femmes|default:0 }};
+
+    // Graphique en barres par sexe
+    const ctxSexe = document.getElementById('BarSexe');
+    if (ctxSexe) {
+        new Chart(ctxSexe, {
+            type: 'bar',
+            data: {
+                labels: ['Hommes', 'Femmes'],
+                datasets: [{
+                    data: [hommesCount, femmesCount],
+                    backgroundColor: ['#3b82f6', '#ec4899']
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: false }
+                },
+                scales: {
+                    x: { beginAtZero: true },
+                    y: { title: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Graphique doughnut par sexe
+    initializeDoughnutChart('chartSexe', 
+        ['Hommes', 'Femmes'], 
+        [hommesCount, femmesCount], 
+        ['#60A5FA', '#F472B6']
+    );
+}
+
+function initializePopulationCharts() {
+    const populationData = {{ population_cible_data|safe }};
+    const labels = populationData.map(item => item.label);
+    const values = populationData.map(item => item.total);
+    const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#66BB6A', '#BA68C8', '#FFA726', '#8D6E63'];
+    
+    // Graphique doughnut population
+    initializeDoughnutChart('chartPopulation', labels, values, colors);
+    
+    // Graphique en barres population
+    const ctxPop = document.getElementById('BarPopulation');
+    if (ctxPop) {
+        new Chart(ctxPop, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: false }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            autoSkip: false,
+                            maxRotation: 0,
+                            minRotation: 0,
+                            callback: function(value, index, ticks) {
+                                const label = this.getLabelForValue(value);
+                                const words = label.split(' ');
+                                const lines = [];
+                                let currentLine = '';
+                                const maxCharsPerLine = 15;
+
+                                words.forEach(word => {
+                                    if ((currentLine + word).length > maxCharsPerLine && currentLine !== '') {
+                                        lines.push(currentLine.trim());
+                                        currentLine = word + ' ';
+                                    } else {
+                                        currentLine += word + ' ';
+                                    }
+                                });
+                                
+                                if (currentLine.trim()) {
+                                    lines.push(currentLine.trim());
+                                }
+                                
+                                return lines;
+                            }
+                        }
+                    },
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+}
+
+function initializeMilieuCharts() {
+    const typeLabels = {{ labels_milieu|safe }};
+    const typeValues = {{ total_milieu|safe }};
+    
+    if (typeLabels && typeLabels.length > 0) {
+        initializeDoughnutChart('ChartMilieu', typeLabels, typeValues, ['#2E446A', '#F4A261']);
+    }
+    
+    // Graphique population-milieu
+    const labels = {{ labels_milieu_pop|safe }};
+    const dataUrbain = {{ urbain_values|safe }};
+    const dataRural = {{ rural_values|safe }};
+    const pourcentageUrbain = {{ pourcentage_urbain|safe }};
+    const pourcentageRural = {{ pourcentage_rural|safe }};
+
+    const ctxMilieu = document.getElementById('chartPopMilieu');
+    if (ctxMilieu && labels && labels.length > 0) {
+        new Chart(ctxMilieu, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Milieu Urbain',
+                        data: dataUrbain,
+                        borderColor: 'blue',
+                        backgroundColor: 'rgba(0,0,255,0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 6,
+                        pointHoverRadius: 10,
+                    },
+                    {
+                        label: 'Milieu Rural',
+                        data: dataRural,
+                        borderColor: 'green',
+                        backgroundColor: 'rgba(0,255,0,0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 6,
+                        pointHoverRadius: 10,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.dataset.label || '';
+                                const index = context.dataIndex;
+                                const value = context.formattedValue;
+                                let percentage = '';
+
+                                if (label === 'Milieu Urbain') {
+                                    percentage = pourcentageUrbain[index];
+                                } else if (label === 'Milieu Rural') {
+                                    percentage = pourcentageRural[index];
+                                }
+
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: true },
+                    x: {
+                        ticks: {
+                            autoSkip: false,
+                            maxRotation: 0,
+                            minRotation: 0,
+                            callback: function(value, index, ticks) {
+                                const label = this.getLabelForValue(value);
+                                const words = label.split(" ");
+                                const lines = [];
+                                let line = "";
+                                const maxCharsPerLine = 20;
+
+                                words.forEach(word => {
+                                    if ((line + word).length > maxCharsPerLine && line !== "") {
+                                        lines.push(line.trim());
+                                        line = word + " ";
+                                    } else {
+                                        line += word + " ";
+                                    }
+                                });
+
+                                if (line.trim()) lines.push(line.trim());
+                                return lines;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+// Fonction utilitaire pour créer des graphiques doughnut
+function initializeDoughnutChart(canvasId, labels, data, colors) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    // Plugins globaux pour les graphiques doughnut
+    const outerRingPlugin = {
+        id: 'outerRing',
+        afterDatasetDraw(chart, args, pluginOptions) {
+            const { ctx, _active } = chart;
+            if (_active && _active.length > 0) {
+                const arc = _active[0].element;
+                ctx.save();
+                ctx.beginPath();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = arc.options.backgroundColor;
+                ctx.arc(arc.x, arc.y, arc.outerRadius + 10, arc.startAngle, arc.endAngle);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+    };
+
+    const centerTextPlugin = {
+        id: 'centerTextRev',
+        beforeDraw(chart) {
+            const { width, height, ctx } = chart;
+            const dataset = chart.data.datasets[0].data;
+            const colors = chart.data.datasets[0].backgroundColor;
+            const total = dataset.reduce((a, b) => a + b, 0);
+            const activeIndex = chart._active?.[0]?.index;
+
+            const value = activeIndex !== undefined ? dataset[activeIndex] : total;
+            const label = activeIndex !== undefined ? chart.data.labels[activeIndex] : 'Total';
+            const color = activeIndex !== undefined ? colors[activeIndex] : '#333';
+
+            const percentRaw = total ? (value / total) * 100 : 0;
+            const percent = (percentRaw % 1 === 0) ? percentRaw.toString() : percentRaw.toFixed(1);
+
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            ctx.font = 'bold 28px sans-serif';
+            ctx.fillStyle = color;
+            ctx.fillText(percent + '%', width / 2, height / 1.9 - 30);
+
+            ctx.font = 'bold 14px sans-serif';
+            const words = label.split(' ');
+            let line = '';
+            const lines = [];
+            const maxWidth = 140;
+
+            for (let n = 0; n < words.length; n++) {
+                const testLine = line + words[n] + ' ';
+                const metrics = ctx.measureText(testLine);
+                if (metrics.width > maxWidth && n > 0) {
+                    lines.push(line.trim());
+                    line = words[n] + ' ';
+                } else {
+                    line = testLine;
+                }
+            }
+            lines.push(line.trim());
+
+            const lineHeight = 25;
+            lines.forEach((l, i) => {
+                ctx.fillText(l, width / 2, height / 1.8 + (i * lineHeight));
+            });
+
+            ctx.restore();
+        }
+    };
+
+    new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            layout: { padding: 30 },
+            animation: {
+                animateRotate: true,
+                animateScale: true,
+                duration: 350,
+                easing: 'easeOutBounce'
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    enabled: true,
+                    callbacks: {
+                        label: function (context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const value = context.parsed;
+                            const percent = total ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+                            return `${context.label}: ${value} (${percent})`;
+                        }
+                    }
+                }
+            }
+        },
+        plugins: [outerRingPlugin, centerTextPlugin]
+    });
+}
+</script>
+
+<script>
+let repartitionChart;
+
+function updateRepartitionChart() {
+    const filtre = document.getElementById("repartitionFilter").value;
+    const annee = "{{ selected_annee }}";
+    const region = "{{ selected_region|default:'' }}";
+    const url = `/api/repartition-beneficiaires/?filtre=${filtre}&annee=${annee}&region=${region}`;
+
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            const ctx = document.getElementById("chartRepartitionBenefic").getContext("2d");
+            if (repartitionChart) repartitionChart.destroy();
+
+            repartitionChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: `Bénéficiaires - ${filtre}`,
+                        data: data.data,
+                        borderColor: '#a554b7',
+                        backgroundColor: '#a554b770',
+                        tension: 0.3,
+                        fill: true,
+                        pointBackgroundColor: '#a554b7'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            }
+                        }
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            console.error("Erreur lors du chargement des données:", error);
+        });
+}
+
+// Initialiser le graphe au chargement
+window.addEventListener('DOMContentLoaded', () => {
+    updateRepartitionChart();
+    document.getElementById("repartitionFilter").addEventListener("change", updateRepartitionChart);
+});
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const labels_evolution = {{ labels_dates|safe }};
+
+        const dataSets = {
+            total: {
+                label: "Total",
+                data: {{ values_benef|safe }},
+                backgroundColor: "#A554B7"
+            },
+            hommes: {
+                label: "Hommes",
+                data: {{ hommes_evol|safe }},
+                backgroundColor: "#3B82F6"
+            },
+            femmes: {
+                label: "Femmes",
+                data: {{ femmes_evol|safe }},
+                backgroundColor: "#EC4899"
+            },
+            urbain: {
+                label: "Urbain",
+                data: {{ urbain_evol|safe }},
+                backgroundColor: "#10B981"
+            },
+            rural: {
+                label: "Rural",
+                data: {{ rural_evol|safe }},
+                backgroundColor: "#F59E0B"
+            },
+            ...Object.fromEntries(
+                Object.entries(JSON.parse(`{{ evolution_par_population|escapejs }}`)).map(([key, val], i) => [
+                    key, { label: key, data: val, backgroundColor: `hsl(${i * 40}, 70%, 60%)` }
+                ])
+            )
+        };
+
+        const ctxEvolution = document.getElementById('chartEvolutionBenefic').getContext('2d');
+        const evolutionChart = new Chart(ctxEvolution, {
+            type: 'bar',
+            data: {
+                labels: labels_evolution,
+                datasets: [dataSets["total"]]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: false,
+                    },
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Année'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Nombre de bénéficiaires'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Gestionnaire d'événement pour le filtre
+        const evolutionFilter = document.getElementById('evolutionFilter');
+        if (evolutionFilter) {
+            evolutionFilter.addEventListener('change', function () {
+                const selected = this.value;
+                if (dataSets[selected]) {
+                    evolutionChart.data.datasets = [dataSets[selected]];
+                    evolutionChart.update();
+                }
+            });
+        }
+    });
+
+</script>
+
+{% endblock %}

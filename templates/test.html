@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Bénéficiaires</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Animations personnalisées */
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .animate-slideInUp {
+            animation: slideInUp 0.6s ease-out forwards;
+        }
+
+        .animate-fadeInScale {
+            animation: fadeInScale 0.5s ease-out forwards;
+        }
+
+        .animate-pulse-custom {
+            animation: pulse 2s infinite;
+        }
+
+        .gradient-animate {
+            background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+        }
+
+        /* Glassmorphism */
+        .glass {
+            backdrop-filter: blur(16px) saturate(180%);
+            background-color: rgba(255, 255, 255, 0.75);
+            border: 1px solid rgba(209, 213, 219, 0.3);
+        }
+
+        .glass-dark {
+            backdrop-filter: blur(16px) saturate(180%);
+            background-color: rgba(17, 24, 39, 0.75);
+            border: 1px solid rgba(75, 85, 99, 0.3);
+        }
+
+        /* Cards avec effet hover avancé */
+        .card-enhanced {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-enhanced::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .card-enhanced:hover::before {
+            left: 100%;
+        }
+
+        .card-enhanced:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        /* Boutons modernes */
+        .btn-modern {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .btn-modern::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-modern:hover::before {
+            left: 100%;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive grid */
+        .responsive-grid {
+            display: grid;
+            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+
+        /* Navigation tabs moderne */
+        .nav-tab {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 2px;
+        }
+
+        /* Scrollbar personnalisé */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 3px;
+        }
+
+        /* Dark mode support */
+        .dark {
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+
+        /* Micro-interactions */
+        .micro-interaction {
+            transition: transform 0.2s ease;
+        }
+
+        .micro-interaction:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+    <!-- Header avec gradient animé -->
+    <header class="gradient-animate text-white py-6 mb-8 shadow-2xl">
+        <div class="container mx-auto px-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-3xl font-bold flex items-center gap-3">
+                    <i class="fas fa-chart-line"></i>
+                    Dashboard Bénéficiaires
+                </h1>
+                <div class="flex items-center gap-4">
+                    <button id="darkModeToggle" class="btn-modern p-2 rounded-full bg-white/20 hover:bg-white/30">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    <button id="refreshBtn" class="btn-modern px-4 py-2 rounded-full bg-white/20 hover:bg-white/30 flex items-center gap-2">
+                        <i class="fas fa-sync-alt"></i>
+                        Actualiser
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto px-4 space-y-8">
+        <!-- KPI Cards avec animations -->
+        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="card-enhanced glass rounded-2xl p-6 text-center animate-fadeInScale" style="animation-delay: 0.1s">
+                <div class="bg-gradient-to-br from-purple-500 to-pink-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse-custom">
+                    <i class="fas fa-user-group text-white text-2xl"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-gray-800 dark:text-white mb-2">
+                    <span class="counter" data-target="1250">0</span>
+                </h3>
+                <p class="text-gray-600 dark:text-gray-300 font-medium">Total Bénéficiaires</p>
+                <div class="mt-3 text-sm text-green-600 dark:text-green-400 flex items-center justify-center gap-1">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>+12% ce mois</span>
+                </div>
+            </div>
+
+            <div class="card-enhanced glass rounded-2xl p-6 animate-fadeInScale" style="animation-delay: 0.2s">
+                <div class="bg-gradient-to-br from-green-500 to-emerald-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-restroom text-white text-2xl"></i>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="text-center">
+                        <h3 class="text-2xl font-bold text-gray-800 dark:text-white">
+                            <span class="counter" data-target="45">0</span>%
+                        </h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-300">Hommes</p>
+                    </div>
+                    <div class="text-center">
+                        <h3 class="text-2xl font-bold text-gray-800 dark:text-white">
+                            <span class="counter" data-target="55">0</span>%
+                        </h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-300">Femmes</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-enhanced glass rounded-2xl p-6 animate-fadeInScale" style="animation-delay: 0.3s">
+                <div class="bg-gradient-to-br from-blue-500 to-indigo-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-earth-africa text-white text-2xl"></i>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="text-center">
+                        <h3 class="text-2xl font-bold text-gray-800 dark:text-white">
+                            <span class="counter" data-target="780">0</span>
+                        </h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-300">Urbain</p>
+                    </div>
+                    <div class="text-center">
+                        <h3 class="text-2xl font-bold text-gray-800 dark:text-white">
+                            <span class="counter" data-target="470">0</span>
+                        </h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-300">Rural</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-enhanced glass rounded-2xl p-6 text-center animate-fadeInScale" style="animation-delay: 0.4s">
+                <div class="bg-gradient-to-br from-yellow-500 to-orange-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-people-group text-white text-2xl"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-gray-800 dark:text-white mb-2">
+                    <span class="counter" data-target="8">0</span>
+                </h3>
+                <p class="text-gray-600 dark:text-gray-300 font-medium">Populations Cibles</p>
+            </div>
+        </section>
+
+        <!-- Filtres modernisés -->
+        <section class="glass rounded-2xl p-6 animate-slideInUp">
+            <div class="flex flex-wrap gap-4 items-center justify-between">
+                <h2 class="text-xl font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+                    <i class="fas fa-filter"></i>
+                    Filtres
+                </h2>
+                <div class="flex flex-wrap gap-3">
+                    <select class="px-4 py-2 rounded-full border-0 bg-white dark:bg-gray-800 shadow-lg focus:ring-2 focus:ring-purple-500 transition-all">
+                        <option value="">-- Année --</option>
+                        <option value="2023">2023</option>
+                        <option value="2024">2024</option>
+                    </select>
+                    <select class="px-4 py-2 rounded-full border-0 bg-white dark:bg-gray-800 shadow-lg focus:ring-2 focus:ring-purple-500 transition-all">
+                        <option value="">-- Région --</option>
+                        <option value="casablanca">Casablanca-Settat</option>
+                        <option value="rabat">Rabat-Salé-Kénitra</option>
+                    </select>
+                    <select class="px-4 py-2 rounded-full border-0 bg-white dark:bg-gray-800 shadow-lg focus:ring-2 focus:ring-purple-500 transition-all">
+                        <option value="">-- Délégation --</option>
+                    </select>
+                    <button class="btn-modern px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full hover:from-purple-600 hover:to-pink-600 micro-interaction">
+                        <i class="fas fa-search mr-2"></i>
+                        Filtrer
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Navigation par onglets -->
+        <section class="glass rounded-2xl overflow-hidden animate-slideInUp" style="animation-delay: 0.2s">
+            <div class="flex overflow-x-auto border-b border-gray-200 dark:border-gray-700">
+                <button class="nav-tab active px-6 py-4 text-sm font-medium text-purple-600 dark:text-purple-400 whitespace-nowrap" data-tab="overview">
+                    <i class="fas fa-chart-pie mr-2"></i>
+                    Vue d'ensemble
+                </button>
+                <button class="nav-tab px-6 py-4 text-sm font-medium text-gray-500 hover:text-purple-600 whitespace-nowrap" data-tab="demographics">
+                    <i class="fas fa-users mr-2"></i>
+                    Démographie
+                </button>
+                <button class="nav-tab px-6 py-4 text-sm font-medium text-gray-500 hover:text-purple-600 whitespace-nowrap" data-tab="evolution">
+                    <i class="fas fa-chart-line mr-2"></i>
+                    Évolution
+                </button>
+                <button class="nav-tab px-6 py-4 text-sm font-medium text-gray-500 hover:text-purple-600 whitespace-nowrap" data-tab="geographic">
+                    <i class="fas fa-map mr-2"></i>
+                    Géographique
+                </button>
+            </div>
+
+            <!-- Contenu des onglets -->
+            <div class="p-6">
+                <!-- Vue d'ensemble -->
+                <div id="overview" class="tab-content">
+                    <div class="responsive-grid">
+                        <div class="card-enhanced glass rounded-xl p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Répartition par Sexe</h3>
+                                <button class="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors micro-interaction">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                            <div class="h-80 flex items-center justify-center">
+                                <canvas id="chartSexe"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="card-enhanced glass rounded-xl p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Population Cible</h3>
+                                <button class="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors micro-interaction">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                            <div class="h-80 flex items-center justify-center">
+                                <canvas id="chartPopulation"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Démographie -->
+                <div id="demographics" class="tab-content hidden">
+                    <div class="responsive-grid">
+                        <div class="card-enhanced glass rounded-xl p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Nombre par Sexe</h3>
+                            <div class="h-80">
+                                <canvas id="barSexe"></canvas>
+                            </div>
+                        </div>
+                        <div class="card-enhanced glass rounded-xl p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Milieu Urbain/Rural</h3>
+                            <div class="h-80">
+                                <canvas id="chartMilieu"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Évolution -->
+                <div id="evolution" class="tab-content hidden">
+                    <div class="card-enhanced glass rounded-xl p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Évolution Temporelle</h3>
+                            <select id="evolutionFilter" class="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 border-0">
+                                <option value="total">Total</option>
+                                <option value="hommes">Hommes</option>
+                                <option value="femmes">Femmes</option>
+                                <option value="urbain">Urbain</option>
+                                <option value="rural">Rural</option>
+                            </select>
+                        </div>
+                        <div class="h-96">
+                            <canvas id="chartEvolution"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Géographique -->
+                <div id="geographic" class="tab-content hidden">
+                    <div class="card-enhanced glass rounded-xl p-6">
+                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Répartition Géographique</h3>
+                        <div class="h-96 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                            <div class="text-center">
+                                <i class="fas fa-map text-4xl text-gray-400 mb-4"></i>
+                                <p class="text-gray-500 dark:text-gray-400">Carte interactive en développement</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Widget de notifications -->
+        <div id="notifications" class="fixed bottom-4 right-4 space-y-2 z-50"></div>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loading" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="glass rounded-2xl p-8 text-center">
+            <div class="spinner mx-auto mb-4"></div>
+            <p class="text-gray-700 dark:text-gray-300">Chargement en cours...</p>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let charts = {};
+        let isDarkMode = false;
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            initializeEventListeners();
+            animateCounters();
+            showNotification('Dashboard chargé avec succès!', 'success');
+        });
+
+        // Animation des compteurs
+        function animateCounters() {
+            const counters = document.querySelectorAll('.counter');
+            
+            counters.forEach(counter => {
+                const target = parseInt(counter.getAttribute('data-target'));
+                const increment = target / 50;
+                let current = 0;
+                
+                const timer = setInterval(() => {
+                    current += increment;
+                    if (current >= target) {
+                        counter.textContent = target;
+                        clearInterval(timer);
+                    } else {
+                        counter.textContent = Math.floor(current);
+                    }
+                }, 30);
+            });
+        }
+
+        // Gestion des onglets
+        function initializeEventListeners() {
+            // Navigation par onglets
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const targetTab = this.getAttribute('data-tab');
+                    switchTab(targetTab, this);
+                });
+            });
+
+            // Mode sombre
+            document.getElementById('darkModeToggle').addEventListener('click', toggleDarkMode);
+
+            // Actualisation
+            document.getElementById('refreshBtn').addEventListener('click', refreshData);
+
+            // Filtres
+            document.querySelectorAll('select').forEach(select => {
+                select.addEventListener('change', updateCharts);
+            });
+        }
+
+        function switchTab(targetTab, tabButton) {
+            // Masquer tous les contenus
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+
+            // Désactiver tous les onglets
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active', 'text-purple-600');
+                tab.classList.add('text-gray-500');
+            });
+
+            // Activer l'onglet sélectionné
+            tabButton.classList.add('active', 'text-purple-600');
+            tabButton.classList.remove('text-gray-500');
+
+            // Afficher le contenu correspondant
+            document.getElementById(targetTab).classList.remove('hidden');
+
+            // Animation d'apparition
+            document.getElementById(targetTab).style.animation = 'fadeInScale 0.5s ease-out';
+        }
+
+        // Mode sombre
+        function toggleDarkMode() {
+            isDarkMode = !isDarkMode;
+            document.documentElement.classList.toggle('dark', isDarkMode);
+            
+            const icon = document.querySelector('#darkModeToggle i');
+            icon.className = isDarkMode ? 'fas fa-sun' : 'fas fa-moon';
+            
+            updateChartsTheme();
+            showNotification(`Mode ${isDarkMode ? 'sombre' : 'clair'} activé`, 'info');
+        }
+
+        // Notifications
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            const colors = {
+                success: 'from-green-500 to-emerald-500',
+                error: 'from-red-500 to-rose-500',
+                info: 'from-blue-500 to-indigo-500',
+                warning: 'from-yellow-500 to-orange-500'
+            };
+
+            notification.className = `glass rounded-lg p-4 mb-2 bg-gradient-to-r ${colors[type]} text-white transform translate-x-full transition-transform duration-300`;
+            notification.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : type === 'warning' ? 'exclamation' : 'info'}"></i>
+                    <span>${message}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-auto">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('notifications').appendChild(notification);
+
+            setTimeout(() => {
+                notification.classList.remove('translate-x-full');
+            }, 100);
+
+            setTimeout(() => {
+                notification.classList.add('translate-x-full');
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+
+        // Actualisation des données
+        function refreshData() {
+            const btn = document.getElementById('refreshBtn');
+            const icon = btn.querySelector('i');
+            
+            icon.classList.add('animate-spin');
+            btn.disabled = true;
+
+            setTimeout(() => {
+                icon.classList.remove('animate-spin');
+                btn.disabled = false;
+                animateCounters();
+                showNotification('Données actualisées', 'success');
+            }, 2000);
+        }
+
+        // Initialisation des graphiques
+        function initializeCharts() {
+            // Graphique répartition par sexe
+            const ctxSexe = document.getElementById('chartSexe').getContext('2d');
+            charts.sexe = new Chart(ctxSexe, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Hommes', 'Femmes'],
+                    datasets: [{
+                        data: [562, 688],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(236, 72, 153, 0.8)'
+                        ],
+                        borderWidth: 0,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true,
+                                font: {
+                                    size: 12,
+                                    weight: '500'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: 'white',
+                            bodyColor: 'white',
+                            cornerRadius: 8,
+                            displayColors: false
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 2000
+                    }
+                }
+            });
+
+            // Graphique population cible
+            const ctxPop = document.getElementById('chartPopulation').getContext('2d');
+            charts.population = new Chart(ctxPop, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Jeunes', 'Femmes rurales', 'Artisans', 'Étudiants', 'Entrepreneurs'],
+                    datasets: [{
+                        data: [300, 250, 200, 280, 220],
+                        backgroundColor: [
+                            'rgba(168, 85, 247, 0.8)',
+                            'rgba(34, 197, 94, 0.8)',
+                            'rgba(251, 191, 36, 0.8)',
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(20, 184, 166, 0.8)'
+                        ],
+                        borderWidth: 0,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true,
+                                font: {
+                                    size: 12,
+                                    weight: '500'
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 2000
+                    }
+                }
+            });
+
+            // Graphique en barres sexe
+            const ctxBarSexe = document.getElementById('barSexe').getContext('2d');
+            charts.barSexe = new Chart(ctxBarSexe, {
+                type: 'bar',
+                data: {
+                    labels: ['Hommes', 'Femmes'],
+                    datasets: [{
+                        data: [562, 688],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(236, 72, 153, 0.8)'
+                        ],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(156, 163, 175, 0.3)'
+                            }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+
+            // Graphique milieu
+            const ctxMilieu = document.getElementById('chartMilieu').getContext('2d');
+            charts.milieu = new Chart(ctxMilieu, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Urbain', 'Rural'],
+                    datasets: [{
+                        data: [780, 470],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(34, 197, 94, 0.8)'
+                        ],
+                        borderWidth: 0,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true,
+                                font: {
+                                    size: 12,
+                                    weight: '500'
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 2000
+                    }
+                }
+            });
+
+            // Graphique évolution
+            const ctxEvolution = document.getElementById('chartEvolution').getContext('2d');
+            charts.evolution = new Chart(ctxEvolution, {
+                type: 'line',
+                data: {
+                    labels: ['2020', '2021', '2022', '2023', '2024'],
+                    datasets: [{
+                        label: 'Total Bénéficiaires',
+                        data: [800, 950, 1100, 1200, 1250],
+                        borderColor: 'rgba(168, 85, 247, 1)',
+                        backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: 'rgba(168, 85, 247, 1)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: 'white',
+                            bodyColor: 'white',
+                            cornerRadius: 8
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(156, 163, 175, 0.3)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 2000,
+                        easing: 'easeInOutQuart'
+                    }
+                }
+            });
+        }
+
+        // Mise à jour des graphiques
+        function updateCharts() {
+            showNotification('Mise à jour des graphiques...', 'info');
+            
+            // Simuler la mise à jour des données
+            setTimeout(() => {
+                Object.values(charts).forEach(chart => {
+                    chart.update();
+                });
+                showNotification('Graphiques mis à jour', 'success');
+            }, 1000);
+        }
+
+        // Mise à jour du thème des graphiques
+        function updateChartsTheme() {
+            const textColor = isDarkMode ? '#f8fafc' : '#374151';
+            const gridColor = isDarkMode ? 'rgba(75, 85, 99, 0.3)' : 'rgba(156, 163, 175, 0.3)';
+
+            Object.values(charts).forEach(chart => {
+                if (chart.options.plugins && chart.options.plugins.legend) {
+                    chart.options.plugins.legend.labels.color = textColor;
+                }
+                if (chart.options.scales) {
+                    Object.keys(chart.options.scales).forEach(scale => {
+                        if (chart.options.scales[scale].ticks) {
+                            chart.options.scales[scale].ticks.color = textColor;
+                        }
+                        if (chart.options.scales[scale].grid) {
+                            chart.options.scales[scale].grid.color = gridColor;
+                        }
+                    });
+                }
+                chart.update();
+            });
+        }
+
+        // Fonction d'export (simulation)
+        function exportChart(chartId, filename) {
+            showNotification('Export en cours...', 'info');
+            
+            setTimeout(() => {
+                showNotification(`${filename} exporté avec succès!`, 'success');
+            }, 1500);
+        }
+
+        // Fonction de recherche intelligente
+        function intelligentSearch(query) {
+            const suggestions = [
+                'Évolution des bénéficiaires par année',
+                'Répartition par région',
+                'Comparaison hommes/femmes',
+                'Analyse du milieu urbain/rural',
+                'Tendances par population cible'
+            ];
+
+            return suggestions.filter(s => 
+                s.toLowerCase().includes(query.toLowerCase())
+            );
+        }
+
+        // Gestion des raccourcis clavier
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 'r':
+                        e.preventDefault();
+                        refreshData();
+                        break;
+                    case 'd':
+                        e.preventDefault();
+                        toggleDarkMode();
+                        break;
+                    case '1':
+                        e.preventDefault();
+                        document.querySelector('[data-tab="overview"]').click();
+                        break;
+                    case '2':
+                        e.preventDefault();
+                        document.querySelector('[data-tab="demographics"]').click();
+                        break;
+                    case '3':
+                        e.preventDefault();
+                        document.querySelector('[data-tab="evolution"]').click();
+                        break;
+                    case '4':
+                        e.preventDefault();
+                        document.querySelector('[data-tab="geographic"]').click();
+                        break;
+                }
+            }
+        });
+
+        // Gestion de la responsive
+        window.addEventListener('resize', function() {
+            Object.values(charts).forEach(chart => {
+                chart.resize();
+            });
+        });
+
+        // Fonction pour afficher les données en temps réel
+        function startRealTimeUpdates() {
+            setInterval(() => {
+                // Simulation de mise à jour en temps réel
+                const counters = document.querySelectorAll('.counter');
+                counters.forEach(counter => {
+                    const current = parseInt(counter.textContent);
+                    const variation = Math.floor(Math.random() * 10) - 5; // -5 à +5
+                    const newValue = Math.max(0, current + variation);
+                    counter.textContent = newValue;
+                });
+            }, 30000); // Mise à jour toutes les 30 secondes
+        }
+
+        // Démarrer les mises à jour en temps réel après 5 secondes
+        setTimeout(startRealTimeUpdates, 5000);
+
+        // Gestion des erreurs globales
+        window.addEventListener('error', function(e) {
+            showNotification('Une erreur s\'est produite', 'error');
+            console.error('Erreur:', e.error);
+        });
+
+        // Performance monitoring
+        const observer = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+                if (entry.entryType === 'largest-contentful-paint') {
+                    if (entry.startTime > 2500) {
+                        console.warn('Performance: LCP élevé détecté');
+                    }
+                }
+            }
+        });
+        observer.observe({entryTypes: ['largest-contentful-paint']});
+
+        // Sauvegarde des préférences utilisateur
+        function saveUserPreferences() {
+            const preferences = {
+                darkMode: isDarkMode,
+                lastTab: document.querySelector('.nav-tab.active').getAttribute('data-tab'),
+                filters: {
+                    year: document.querySelector('select').value,
+                    // Ajouter d'autres filtres
+                }
+            };
+            
+            // Dans un vrai projet, on utiliserait une API
+            console.log('Préférences sauvegardées:', preferences);
+        }
+
+        // Sauvegarder les préférences à la fermeture
+        window.addEventListener('beforeunload', saveUserPreferences);
+
+        // Animation d'entrée progressive des éléments
+        function animateElements() {
+            const elements = document.querySelectorAll('.card-enhanced, .glass');
+            elements.forEach((el, index) => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(20px)';
+                
+                setTimeout(() => {
+                    el.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+                    el.style.opacity = '1';
+                    el.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        }
+
+        // Lancer l'animation après le chargement
+        setTimeout(animateElements, 500);
+
+        // Système de tooltips avancé
+        function initTooltips() {
+            const tooltipElements = document.querySelectorAll('[data-tooltip]');
+            
+            tooltipElements.forEach(el => {
+                el.addEventListener('mouseenter', function() {
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'absolute z-50 px-3 py-2 text-sm bg-gray-900 text-white rounded-lg shadow-lg pointer-events-none';
+                    tooltip.textContent = this.getAttribute('data-tooltip');
+                    
+                    document.body.appendChild(tooltip);
+                    
+                    const rect = this.getBoundingClientRect();
+                    tooltip.style.top = (rect.top - tooltip.offsetHeight - 8) + 'px';
+                    tooltip.style.left = (rect.left + rect.width/2 - tooltip.offsetWidth/2) + 'px';
+                    
+                    this._tooltip = tooltip;
+                });
+                
+                el.addEventListener('mouseleave', function() {
+                    if (this._tooltip) {
+                        this._tooltip.remove();
+                        this._tooltip = null;
+                    }
+                });
+            });
+        }
+
+        initTooltips();
+    </script>
+</body>
+</html>

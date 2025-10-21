@@ -1,0 +1,1003 @@
+{% extends "base.html" %}
+
+{% block title %}Personnel{% endblock %}
+{% load static %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{% static 'css/personnel.css' %}">
+
+
+<!-- Toast Exportation -->
+<div id="toastExport"
+     class="fixed top-5 right-5 bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded shadow-lg hidden"
+     role="alert">
+    <div class="flex items-center justify-between">
+        <span><i class="fa-solid fa-download mr-2"></i> Graphe téléchargé avec succès.</span>
+        <button onclick="document.getElementById('toastExport').classList.add('hidden')"
+                class="text-yellow-600 hover:text-yellow-900">&times;</button>
+    </div>
+    <div class="h-1 bg-yellow-300 mt-2 animate-progress"></div>
+</div>
+
+<!-- KPI Cards -->
+<section class="w-full mx-auto responsive-my-10">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 responsive-gap-6">
+        
+        <!-- Total Personnels -->
+        <div class="kpi-card kpi-purple text-white rounded-2xl shadow-lg text-center card-animated card-delay-1">
+            <i class="fa-solid fa-users kpi-icon mb-3"></i>
+            <h5 class="responsive-text-2xl font-bold mb-2">
+                <span class="animated-number" data-value="{{ Personnels_count }}">0</span>
+            </h5>
+            <p class="responsive-text-sm font-medium opacity-90">Total des Personnels</p>
+        </div>
+
+        <!-- Pourcentage Femmes/Hommes -->
+        <div class="kpi-card kpi-green text-white rounded-2xl shadow-lg card-animated card-delay-2">
+            <i class="fa-solid fa-children kpi-icon mb-3"></i>
+            <div class="flex justify-between responsive-text-sm gap-2">
+                <div class="text-center w-1/2">
+                    <h5 class="kpi-percentage font-bold mb-1">
+                        <span class="animated-number" data-value="{{ pourcentage_filles }}">0</span>%
+                    </h5>
+                    <p class="kpi-label font-medium opacity-90">Femmes</p>
+                </div>
+                <div class="text-center w-1/2">
+                    <h5 class="kpi-percentage font-bold mb-1">
+                        <span class="animated-number" data-value="{{ pourcentage_garcons }}">0</span>%
+                    </h5>
+                    <p class="kpi-label font-medium opacity-90">Hommes</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- type Interieur vs Exterieur -->
+        <div class="kpi-card kpi-blue text-white rounded-2xl shadow-lg card-animated card-delay-3">
+            <i class="fa-solid fa-scale-balanced kpi-icon mb-3"></i>
+            <div class="flex justify-between responsive-text-sm gap-2">
+                <div class="text-center w-1/2">
+                    <h5 class="kpi-percentage font-bold mb-1">
+                        <span class="animated-number" data-value="{{ interieur|floatformat:2 }}">0</span>
+                    </h5>
+                    <p class="kpi-label font-medium opacity-90">Intérieur</p>
+                </div>
+                <div class="text-center w-1/2">
+                    <h5 class="kpi-percentage font-bold mb-1">
+                        <span class="animated-number" data-value="{{ exterieur|floatformat:2 }}">0</span>
+                    </h5>
+                    <p class="kpi-label font-medium opacity-90">Extérieur</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Taux d'encadrement -->
+        <div class="kpi-card kpi-yellow text-white rounded-2xl shadow-lg text-center card-animated card-delay-4">
+            <i class="fa-solid fa-school kpi-icon mb-3"></i>
+            <h5 class="responsive-text-2xl font-bold mb-2">
+                <span class="animated-number" data-value="{{ taux_encadre }}">0</span>
+            </h5>
+            <p class="responsive-text-sm font-medium opacity-90">Taux d'Encadremant dans les EPS</p>
+        </div>
+
+    </div>
+</section>
+
+<!-- Filtres -->
+<section class="w-full mx-auto responsive-mb-8 responsive-p-4 bg-white rounded shadow">
+    <form method="get" action="{% url 'personnel' %}" class="responsive-flex justify-end mobile-stack">
+        <select name="annee" id="annee-select" class="mobile-full-width">
+            <option value="">-- Année --</option>
+            {% for annee in annees %}
+                <option value="{{ annee.id_periodicite }}" {% if selected_annee == annee.id_periodicite|stringformat:"s" %}selected{% endif %}>
+                    {{ annee.id_periodicite }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <select name="region" id="region-select" class="mobile-full-width">
+            <option value="">-- Région --</option>
+            {% for region in regions %}
+                <option value="{{ region.id_region }}" {% if selected_region == region.id_region|stringformat:"s" %}selected{% endif %}>
+                    {{ region.region }}
+                </option>
+            {% endfor %}
+        </select>
+
+       <select name="delegation" id="delegation-select" class="mobile-full-width" disabled>
+            <option value="">-- Délégation --</option>
+            {% for deleg in delegations %}
+                {% if not selected_region or deleg.id_region == selected_region|add:""|stringformat:"s" %}
+                    <option value="{{ deleg.id_delegation }}" {% if selected_delegation == deleg.id_delegation|stringformat:"s" %}selected{% endif %}>
+                        {{ deleg.delegation }}
+                    </option>
+                {% endif %}
+            {% endfor %}
+        </select>
+
+        <button type="submit" class="bg-[#A554B7] text-white filter-btn hover:bg-purple-700 transition mobile-full-width">
+            Filtrer
+        </button>
+    </form>
+</section>
+
+<!-- Graphiques -->
+<section class="w-full mx-auto space-y-8">
+    <div class="grid grid-cols-1 lg:grid-cols-2 responsive-gap-6">
+        <div class="chart-container bg-white rounded shadow h-responsive-600 w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="chart-title">Répartition du Personnel par Sexe</h1>
+                <button class="export-btn" onclick="showToast('toastExport')" title="Télécharger en image">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+            </div>
+            <div style="position: relative; height: calc(100% - 60px);">
+                <canvas id="chartPersonnelSexe"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-container bg-white rounded shadow h-responsive-600 w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="chart-title">Répartition du Personnel par Tranche d'Age</h1>
+                <button class="export-btn" onclick="showToast('toastExport')" title="Télécharger en image">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+            </div>
+            <div style="position: relative; height: calc(100% - 60px);">
+                <canvas id="chartPersonnelAge"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 responsive-gap-6">
+        <div class="chart-container bg-white rounded shadow h-responsive-500 w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="chart-title">Nombre du Personnel par Type</h2>
+                <button class="export-btn" onclick="showToast('toastExport')" title="Télécharger en image">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+            </div>
+            <div style="position: relative; height: calc(100% - 60px);">
+                <canvas id="BarTypePersonnel"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-container bg-white rounded shadow h-responsive-500 w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="chart-title">Nombre du Personnel par Nature</h2>
+                <button class="export-btn" onclick="showToast('toastExport')" title="Télécharger en image">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+            </div>
+            <div style="position: relative; height: calc(100% - 60px);">
+                <canvas id="BarPersonnelNature"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique géographique avec sous-filtres -->
+    <div class="chart-container bg-white rounded shadow h-responsive-700 w-full">
+        <div class="chart-header">
+            <h2 class="chart-title">Répartition Géographique du Personnel</h2>
+            <div class="chart-controls">
+                <div class="filter-select-container">
+                    <select id="geoFilter" class="filter-select">
+                        <optgroup label="Vue générale">
+                            <option value="total" selected>Total</option>
+                        </optgroup>
+                        <optgroup label="Par sexe">
+                            <option value="homme">Hommes</option>
+                            <option value="femme">Femmes</option>
+                        </optgroup>
+                        <optgroup label="Par type">
+                            <option value="interieur">Intérieur</option>
+                            <option value="exterieur">Extérieur</option>
+                        </optgroup>
+                        <optgroup label="Par tranche d'âge">
+                            <option value="Moins de 26 ans">Moins de 26 ans</option>
+                            <option value="26-29 ans">26-29 ans</option>
+                            <option value="30-39 ans">30-39 ans</option>
+                            <option value="40-49 ans">40-49 ans</option>
+                            <option value="50-59 ans">50-59 ans</option>
+                            <option value="60-62 ans">60-62 ans</option>
+                            <option value="63 ans et plus">63 ans et plus</option>
+                        </optgroup>
+                        <optgroup label="Par nature">
+                            <option value="Titulaires">Titulaires</option>
+                            <option value="Vacataires">Vacataires</option>
+                            <option value="Volontaires">Volontaires</option>
+                            <option value="Partenaires">Partenaires</option>
+                            <option value="Promoteurs">Promoteurs</option>
+                        </optgroup>
+                    </select>
+                    <i class="fa-solid fa-filter filter-icon"></i>
+                </div>
+                <button class="export-btn" onclick="exportChart('chartPersonnelGeo'); showToast('toastExport')" title="Télécharger en image">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="chartPersonnelGeo" class="w-full"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-container bg-white rounded shadow h-responsive-700 w-full">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="chart-title">Nombre du Personnel par Grade</h2>
+            <button class="export-btn" onclick="showToast('toastExport')" title="Télécharger en image">
+                <i class="fa-solid fa-download"></i>
+            </button>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="chartPersonnelGrade" class="w-full"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-container bg-white rounded shadow h-responsive-700 w-full">
+        <div class="chart-header">
+            <h2 class="chart-title">Évolution du nombre du personnel</h2>
+            <div class="chart-controls">
+                <div class="filter-select-container">
+                    <select id="evolutionFilter" class="filter-select">
+                        {% for key in evolution_keys %}
+                            <option value="{{ key }}">{{ key }}</option>
+                        {% endfor %}
+                    </select>
+                    <i class="fa-solid fa-filter filter-icon"></i>
+                </div>
+                <button class="export-btn" onclick="showToast('toastExport')" title="Télécharger en image">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="chartEvolutionPersonnel" class="w-full"></canvas>
+        </div>
+    </div>
+</section>
+
+<!-- Chart.js (doit venir en premier) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- Plugin OUTLABELS (doit venir ensuite) -->
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+<script src="{% static 'js/CountAnimation.js' %}" ></script>
+<script src="{% static 'js/delegationFiltre.js' %}" ></script>
+<script src="{% static 'js/export.js' %}" ></script>
+
+<script>
+function showToast(toastId) {
+    const toast = document.getElementById(toastId);
+    toast.classList.remove('hidden');
+    setTimeout(() => {
+        toast.classList.add('hidden');
+    }, 3000);
+}
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const regionSelect = document.getElementById('region-select');
+        const delegationSelect = document.getElementById('delegation-select');
+
+        regionSelect.addEventListener('change', function () {
+            const regionId = this.value;
+
+            // Réinitialiser le champ des délégations
+            delegationSelect.innerHTML = '<option value="">-- Délégation --</option>';
+            delegationSelect.disabled = true;
+
+            if (regionId) {
+                fetch(`/ajax/get-delegations/?region_id=${regionId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.delegations.forEach(deleg => {
+                            const option = document.createElement('option');
+                            option.value = deleg.id_delegation;
+                            option.textContent = deleg.delegation;
+                            delegationSelect.appendChild(option);
+                        });
+                        delegationSelect.disabled = false;
+                    })
+                    .catch(error => {
+                        console.error('Erreur lors du chargement des délégations :', error);
+                        alert('Erreur lors du chargement des délégations. Consultez la console.');
+                    });
+            }
+        });
+    });
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+
+        const outerRingPlugin = {
+            id: 'outerRing',
+            afterDatasetDraw(chart, args, pluginOptions) {
+                const { ctx, _active } = chart;
+                if (_active && _active.length > 0) {
+                    const arc = _active[0].element;
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = arc.options.backgroundColor;
+                    ctx.arc(arc.x, arc.y, arc.outerRadius + 10, arc.startAngle, arc.endAngle);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+        };
+
+        const centerTextPlugin = {
+            id: 'centerTextRev',
+            beforeDraw(chart) {
+                const { width, height, ctx } = chart;
+                const dataset = chart.data.datasets[0].data;
+                const colors = chart.data.datasets[0].backgroundColor;
+                const total = dataset.reduce((a, b) => a + b, 0);
+                const activeIndex = chart._active?.[0]?.index;
+
+                const value = activeIndex !== undefined ? dataset[activeIndex] : total;
+                const label = activeIndex !== undefined ? chart.data.labels[activeIndex] : 'Total';
+                const color = activeIndex !== undefined ? colors[activeIndex] : '#333';
+
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                ctx.font = 'bold 28px sans-serif';
+                ctx.fillStyle = color;
+                ctx.fillText(Math.floor(value), width / 2, height / 1.9 - 30);
+
+                ctx.font = 'bold 18px sans-serif';
+                const words = label.split(' ');
+                let line = '';
+                const lines = [];
+                const maxWidth = 140;
+
+                for (let n = 0; n < words.length; n++) {
+                    const testLine = line + words[n] + ' ';
+                    const metrics = ctx.measureText(testLine);
+                    if (metrics.width > maxWidth && n > 0) {
+                        lines.push(line.trim());
+                        line = words[n] + ' ';
+                    } else {
+                        line = testLine;
+                    }
+                }
+                lines.push(line.trim());
+
+                const lineHeight = 25;
+                lines.forEach((l, i) => {
+                    ctx.fillText(l, width / 2, height / 1.8 + (i * lineHeight));
+                });
+
+                ctx.restore();
+            }
+        };
+
+        // Chart 1: Répartition par sexe
+        const sexeData = {
+            labels: {{ labels_sexe|safe }},
+            datasets: [{
+                label: 'Répartition par sexe',
+                data: {{ values_sexe|safe }},
+                backgroundColor: ['#60A5FA', '#F472B6'],
+                hoverOffset: 10,
+            }]
+        };
+
+        new Chart(document.getElementById('chartPersonnelSexe'), {
+            type: 'doughnut',
+            data: sexeData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                layout: { padding: 30 },
+                animation: {
+                    animateRotate: true,
+                    animateScale: true,
+                    duration: 350,
+                    easing: 'easeOutBounce'
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        callbacks: {
+                            label: function (context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const value = context.parsed;
+                                const percent = total ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+                                return context.label + ': ' + value + ' (' + percent + ')';
+                            }
+                        }
+                    }
+                }
+            },
+            plugins: [outerRingPlugin, centerTextPlugin]
+        });
+    
+        
+        // Chart 2: Répartition par age
+        const labelsAge = {{ labels_age|safe }};
+        const valuesAge = {{ values_age|safe }};
+        const backgroundColorsAge = [
+            '#FF6384', '#36A2EB', '#FFCE56', '#66BB6A', '#BA68C8', '#FFA726', '#AB47BC'
+        ];
+
+        new Chart(document.getElementById('chartPersonnelAge'), {
+            type: 'doughnut',
+            data: {
+                labels: labelsAge,
+                datasets: [{
+                    label: 'Répartition par tranches d\'age',
+                    data: valuesAge,
+                    backgroundColor: backgroundColorsAge,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                layout: { padding: 30 },
+                animation: {
+                    animateRotate: true,
+                    animateScale: true,
+                    duration: 400,
+                    easing: 'easeOutBounce'
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const value = context.parsed;
+                                const percent = total ? ((value / total) * 100).toFixed(1) : '0';
+                                return context.label + ': ' + value + ' (' + percent + '%)';
+                            }
+                        }
+                    }
+                }
+            },
+            plugins: [outerRingPlugin, centerTextPlugin]
+        });
+    
+    });
+</script>
+
+<script>
+    const ctxType = document.getElementById('BarTypePersonnel').getContext('2d');
+
+    new Chart(ctxType, {
+        type: 'bar',
+        data: {
+            labels: {{ labels_type|safe }},
+            datasets: [{
+                label: 'Nombre de personnel par type',
+                data: {{ values_type|safe }},
+                backgroundColor: '#3b82f6',
+                borderRadius: 6,
+                barThickness: 28,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const value = context.parsed.x;
+                            const percent = total ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+                            return `${context.label}: ${value} (${percent})`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Nombre de personnel'
+                    }
+                },
+                y: {
+                    title: {
+                        display: false
+                    },
+                    ticks: {
+                        autoSkip: false
+                    }
+                }
+            }
+        }
+    });
+</script>
+
+<script>
+    const ctxPop = document.getElementById('BarPersonnelNature').getContext('2d');
+    new Chart(ctxPop, {
+        type: 'bar',
+        data: {
+            labels: {{ labels_nature|safe }},
+            datasets: [{ 
+                data: {{ values_nature|safe }},
+                backgroundColor: [
+                    "#2E446A", "#59824A", "#A554B7", "#EEDC81", "#36A2EB",
+                    "#FF6384", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40",
+                    "#C9CBCF", "#1C2331"
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    title: {
+                        display: false,
+                    },
+                    ticks: {
+                        autoSkip: false,
+                        maxRotation: 0,
+                        minRotation: 0
+                    }
+                },
+                y: {
+                    title: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+</script>
+
+<script>
+    const ctxGrade = document.getElementById('chartPersonnelGrade').getContext('2d');
+
+    // Dégradé de fond sous la ligne
+    const gradient = ctxGrade.createLinearGradient(0, 0, 0, 400);
+    gradient.addColorStop(0, 'rgba(139, 92, 246, 0.4)');
+    gradient.addColorStop(1, 'rgba(139, 92, 246, 0.05)');
+
+    new Chart(ctxGrade, {
+        type: 'line',
+        data: {
+            labels: {{ labels_grades|safe }},
+            datasets: [{
+                label: '',
+                data: {{ values_grades|safe }},
+                backgroundColor: gradient,
+                borderColor: '#8B5CF6',
+                borderWidth: 3,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: '#8B5CF6',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 8,
+                tension: 0.4,
+                fill: true,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: false                  
+                },
+                tooltip: {
+                    backgroundColor: '#fff',
+                    titleColor: '#111',
+                    bodyColor: '#444',
+                    borderColor: '#8B5CF6',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const value = context.parsed.y;
+                            const percent = total ? ((value / total) * 100).toFixed(0) : '0';
+                            return `${context.label}: ${value} (${percent}%)`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        font: {
+                            size: 12,
+                            family: "'Segoe UI', 'Roboto', sans-serif"
+                        }
+                    },
+                    grid: {
+                        color: '#e5e7eb',
+                        lineWidth: 1
+                    }
+                },
+                x: {
+                    ticks: {
+                        autoSkip: true,
+                        maxRotation: 45,
+                        minRotation: 0,
+                        font: {
+                            size: 12,
+                            family: "'Segoe UI', 'Roboto', sans-serif"
+                        }
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+</script>
+
+<script>
+    // Récupération du JSON passé depuis Django
+    const evolutionData = JSON.parse('{{ evolution_json|escapejs }}');
+    const labels = {{ labels_annees|safe }};
+
+    // Construction de dataSets uniquement avec evolutionData
+    const dataSets = {
+        total: {
+            label: "Total",
+            data: evolutionData.total,
+            backgroundColor: "#A554B7"
+        },
+        homme: {
+            label: "Hommes",
+            data: evolutionData.homme,
+            backgroundColor: "#3B82F6"
+        },
+        femme: {
+            label: "Femmes",
+            data: evolutionData.femme,
+            backgroundColor: "#F472B6"
+        },
+        Extérieur: {
+            label: "Extérieur",
+            data: evolutionData.Extérieur,
+            backgroundColor: "#34D399"
+        },
+        Intérieur: {
+            label: "Intérieur",
+            data: evolutionData.Intérieur,
+            backgroundColor: "#60A5FA"
+        },
+        Titulaires: {
+            label: "Titulaires",
+            data: evolutionData.Titulaires,
+            backgroundColor: "#8B5CF6"
+        },
+        Vacataires: {
+            label: "Vacataires",
+            data: evolutionData.Vacataires,
+            backgroundColor: "#F59E0B"
+        },
+        Volontaires: {
+            label: "Volontaires",
+            data: evolutionData.Volontaires,
+            backgroundColor: "#10B981"
+        },
+        Partenaires: {
+            label: "Partenaires",
+            data: evolutionData.Partenaires,
+            backgroundColor: "#EC4899"
+        },
+        Promoteurs: {
+            label: "Promoteurs",
+            data: evolutionData.Promoteurs,
+            backgroundColor: "#EF4444"
+        },
+        "Moins de 26 ans": {
+            label: "Moins de 26 ans",
+            data: evolutionData["Moins de 26 ans"],
+            backgroundColor: "#FBBF24"
+        },
+        "26-29 ans": {
+            label: "26-29 ans",
+            data: evolutionData["26-29 ans"],
+            backgroundColor: "#818CF8"
+        },
+        "30-39 ans": {
+            label: "30-39 ans",
+            data: evolutionData["30-39 ans"],
+            backgroundColor: "#E879F9"
+        },
+        "40-49 ans": {
+            label: "40-49 ans",
+            data: evolutionData["40-49 ans"],
+            backgroundColor: "#F472B6"
+        },
+        "50-59 ans": {
+            label: "50-59 ans",
+            data: evolutionData["50-59 ans"],
+            backgroundColor: "#A78BFA"
+        },
+        "60-62 ans": {
+            label: "60-62 ans",
+            data: evolutionData["60-62 ans"],
+            backgroundColor: "#06B6D4"
+        },
+        "63 ans et plus": {
+            label: "63 ans et plus",
+            data: evolutionData["63 ans et plus"],
+            backgroundColor: "#9CA3AF"
+        }
+    };
+
+    // Initialisation du graphique avec "total"
+    const ctx = document.getElementById('chartEvolutionPersonnel').getContext('2d');
+    const chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [dataSets["total"]]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                title: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Année'
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Nombre de personnel'
+                    }
+                }
+            }
+        }
+    });
+
+    // Filtre dynamique pour changer la série affichée
+    document.getElementById('evolutionFilter').addEventListener('change', function () {
+        const selected = this.value;
+        if (dataSets[selected]) {
+            chart.data.datasets = [dataSets[selected]];
+            chart.update();
+        }
+    });
+</script>
+
+<script>
+    // Récupération des données depuis Django
+    const geoCategories = JSON.parse('{{ geo_categories_json|escapejs }}');
+    const labelsGeo = {{ labels_geo|safe }};
+    const geoBaseLabel = '{{ geo_label|escapejs }}';
+
+    // Configuration des couleurs pour chaque catégorie
+    const geoColors = {
+        total: { border: '#A554B7', bg: 'rgba(165, 84, 183, 0.4)' },
+        homme: { border: '#3B82F6', bg: 'rgba(59, 130, 246, 0.4)' },
+        femme: { border: '#F472B6', bg: 'rgba(244, 114, 182, 0.4)' },
+        interieur: { border: '#60A5FA', bg: 'rgba(96, 165, 250, 0.4)' },
+        exterieur: { border: '#34D399', bg: 'rgba(52, 211, 153, 0.4)' },
+        'Moins de 26 ans': { border: '#FBBF24', bg: 'rgba(251, 191, 36, 0.4)' },
+        '26-29 ans': { border: '#818CF8', bg: 'rgba(129, 140, 248, 0.4)' },
+        '30-39 ans': { border: '#E879F9', bg: 'rgba(232, 121, 249, 0.4)' },
+        '40-49 ans': { border: '#F472B6', bg: 'rgba(244, 114, 182, 0.4)' },
+        '50-59 ans': { border: '#A78BFA', bg: 'rgba(167, 139, 250, 0.4)' },
+        '60-62 ans': { border: '#06B6D4', bg: 'rgba(6, 182, 212, 0.4)' },
+        '63 ans et plus': { border: '#9CA3AF', bg: 'rgba(156, 163, 175, 0.4)' },
+        Titulaires: { border: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.4)' },
+        Vacataires: { border: '#F59E0B', bg: 'rgba(245, 158, 11, 0.4)' },
+        Volontaires: { border: '#10B981', bg: 'rgba(16, 185, 129, 0.4)' },
+        Partenaires: { border: '#EC4899', bg: 'rgba(236, 72, 153, 0.4)' },
+        Promoteurs: { border: '#EF4444', bg: 'rgba(239, 68, 68, 0.4)' }
+    };
+
+    // Labels en français
+    const geoLabels = {
+        total: 'Total',
+        homme: 'Hommes',
+        femme: 'Femmes',
+        interieur: 'Intérieur',
+        exterieur: 'Extérieur',
+        'Moins de 26 ans': 'Moins de 26 ans',
+        '26-29 ans': '26-29 ans',
+        '30-39 ans': '30-39 ans',
+        '40-49 ans': '40-49 ans',
+        '50-59 ans': '50-59 ans',
+        '60-62 ans': '60-62 ans',
+        '63 ans et plus': '63 ans et plus',
+        Titulaires: 'Titulaires',
+        Vacataires: 'Vacataires',
+        Volontaires: 'Volontaires',
+        Partenaires: 'Partenaires',
+        Promoteurs: 'Promoteurs'
+    };
+
+    const ctxGeo = document.getElementById('chartPersonnelGeo').getContext('2d');
+
+    // Fonction pour créer le gradient
+    function createGradient(color) {
+        const gradient = ctxGeo.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, color);
+        gradient.addColorStop(1, color.replace(/[\d.]+\)$/g, '0.05)'));
+        return gradient;
+    }
+
+    // Initialisation du graphique avec 'total'
+    const chartGeo = new Chart(ctxGeo, {
+        type: 'line',
+        data: {
+            labels: labelsGeo,
+            datasets: [{
+                label: geoLabels['total'],
+                data: geoCategories['total'],
+                backgroundColor: createGradient(geoColors['total'].bg),
+                borderColor: geoColors['total'].border,
+                borderWidth: 3,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: geoColors['total'].border,
+                pointBorderWidth: 2,
+                pointRadius: 6,
+                pointHoverRadius: 9,
+                tension: 0.4,
+                fill: true,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        font: {
+                            size: 13,
+                            weight: 'bold'
+                        },
+                        padding: 15,
+                        generateLabels: function(chart) {
+                            return [{
+                                text: `${geoBaseLabel} - ${chart.data.datasets[0].label}`,
+                                fillStyle: chart.data.datasets[0].borderColor,
+                                hidden: false,
+                                lineWidth: 2
+                            }];
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: '#fff',
+                    titleColor: '#111',
+                    bodyColor: '#444',
+                    borderColor: geoColors['total'].border,
+                    borderWidth: 1,
+                    padding: 12,
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const value = context.parsed.y;
+                            const percent = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
+                            return `Personnel: ${value} (${percent}%)`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        font: {
+                            size: 12,
+                            family: "'Segoe UI', 'Roboto', sans-serif"
+                        },
+                        stepSize: 1
+                    },
+                    grid: {
+                        color: '#e5e7eb',
+                        lineWidth: 1
+                    },
+                    title: {
+                        display: true,
+                        text: 'Nombre de personnel',
+                        font: {
+                            size: 13,
+                            weight: 'bold'
+                        },
+                        color: '#374151'
+                    }
+                },
+                x: {
+                    ticks: {
+                        autoSkip: false,
+                        maxRotation: 45,
+                        minRotation: 0,
+                        font: {
+                            size: 11,
+                            family: "'Segoe UI', 'Roboto', sans-serif"
+                        }
+                    },
+                    grid: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: geoBaseLabel,
+                        font: {
+                            size: 13,
+                            weight: 'bold'
+                        },
+                        color: '#374151'
+                    }
+                }
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false
+            }
+        }
+    });
+
+    // Filtre dynamique
+    document.getElementById('geoFilter').addEventListener('change', function() {
+        const selected = this.value;
+        
+        if (geoCategories[selected]) {
+            const color = geoColors[selected];
+            
+            chartGeo.data.datasets[0].label = geoLabels[selected];
+            chartGeo.data.datasets[0].data = geoCategories[selected];
+            chartGeo.data.datasets[0].borderColor = color.border;
+            chartGeo.data.datasets[0].pointBorderColor = color.border;
+            chartGeo.data.datasets[0].backgroundColor = createGradient(color.bg);
+            chartGeo.options.plugins.tooltip.borderColor = color.border;
+            
+            chartGeo.update('active');
+        }
+    });
+</script>
+
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Utilisateurs{% endblock %}
+
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-12 px-6">
+    <div class="w-full mx-auto bg-white rounded-xl shadow-lg p-6">
+        
+        <!-- Titre -->
+        <h1 class="mt-6 mb-12 text-3xl font-bold text-gray-800 text-center">Liste des utilisateurs</h1>
+
+        <!-- Bouton Ajouter -->
+        <a href="{% url 'add_user' %}"
+           class="inline-flex items-center mb-6 px-4 py-2 bg-[var(--primary-purple)] text-white rounded-lg shadow hover:bg-purple-700 transition">
+            <i class="fa-solid fa-user-plus mr-2 text-lg"></i> Ajouter un utilisateur
+        </a>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+            <table class="min-w-full border-collapse border border-gray-200">
+                <thead class="bg-gray-800 text-white">
+                    <tr>
+                        <th class="px-4 py-3 border border-gray-300 text-left text-sm font-semibold">ID</th>
+                        <th class="px-4 py-3 border border-gray-300 text-left text-sm font-semibold">Nom d'utilisateur</th>
+                        <th class="px-4 py-3 border border-gray-300 text-left text-sm font-semibold">Nom</th>
+                        <th class="px-4 py-3 border border-gray-300 text-left text-sm font-semibold">Prénom</th>
+                        <th class="px-4 py-3 border border-gray-300 text-left text-sm font-semibold">Email</th>
+                        <th class="px-4 py-3 border border-gray-300 text-left text-sm font-semibold">Téléphone</th>
+                        <th class="px-4 py-3 border border-gray-300 text-left text-sm font-semibold">Rôle</th>
+                        <th class="px-4 py-3 border border-gray-300 text-left text-sm font-semibold">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr class="hover:bg-purple-50 even:bg-gray-50">
+                        <td class="border border-gray-300 px-4 py-2 text-sm">{{ user.id }}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-sm">{{ user.username }}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-sm">{{ user.first_name }}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-sm">{{ user.last_name }}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-sm">{{ user.email }}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-sm">{{ user.phone }}</td>
+                        <td class="border border-gray-300 px-4 py-2 text-sm">
+                            {% if user.is_superuser %}
+                                <span class="inline-block px-2 py-1 text-xs font-semibold text-white bg-[var(--primary-purple)] rounded">Administrateur</span>
+                            {% else %}
+                                <span class="inline-block px-2 py-1 text-xs font-semibold text-gray-700 bg-gray-200 rounded">Utilisateur</span>
+                            {% endif %}
+                        </td>
+                        <td class="border border-gray-300 px-4 py-2 text-sm flex gap-2">
+                            <a href="{% url 'edit_user' user.id %}"
+                               class="inline-flex items-center px-3 py-1 bg-yellow-400 text-yellow-900 rounded hover:bg-yellow-500 transition">
+                                <i class="fa-solid fa-pen-to-square mr-1"></i> Modifier
+                            </a>
+                            <a href="{% url 'delete_user' user.id %}" 
+                               onclick="return confirm('Voulez-vous vraiment supprimer cet utilisateur ?');"
+                               class="inline-flex items-center px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition">
+                                <i class="fa-solid fa-trash mr-1"></i> Supprimer
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-6 text-gray-500">Aucun utilisateur trouvé.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,761 @@
+{% extends "base.html" %}
+
+{% block title %}Centres{% endblock %}
+{% load static %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{% static 'css/centre.css' %}">
+
+ <style>
+    /* simple style dashboard */
+    .map-card { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.06); }
+    #map { width: 100%; height: 600px; border-radius: 6px; }
+    .legend { background: white; padding: 8px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); max-height: 300px; overflow:auto; }
+    .reset-btn { margin-left: 8px; }
+  </style>
+<div id="loading">Génération du PDF en cours...</div>
+
+<!-- KPI Cards -->
+<section class="w-full mx-auto responsive-my-10">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 responsive-gap-6">
+
+        <!-- Total Centres -->
+        <div class="kpi-card kpi-purple text-white rounded-2xl shadow-lg text-center card-animated card-delay-1">
+            <i class="fa-solid fa-building kpi-icon mb-3"></i>
+            <h5 class="responsive-text-2xl font-bold mb-2">
+                <span class="animated-number" data-value="{{ centres_count }}">0</span>
+            </h5>
+            <p class="responsive-text-sm font-medium opacity-90">Total des Centres</p>
+        </div>
+
+        <!-- Pourcentage Urbain/Rural -->
+        <div class="kpi-card kpi-green text-white rounded-2xl shadow-lg card-animated card-delay-2">
+            <i class="fa-solid fa-earth-africa kpi-icon mb-3 block text-center"></i>
+            <div class="flex justify-between responsive-text-sm gap-2">
+                <div class="text-center w-1/2">
+                    <h5 class="kpi-percentage font-bold mb-1">
+                        <span class="animated-number" data-value="{{ pourcentage_urbain }}">0</span> %
+                    </h5>
+                    <p class="kpi-label font-medium opacity-90">Urbain</p>
+                </div>
+                <div class="text-center w-1/2">
+                    <h5 class="kpi-percentage font-bold mb-1">
+                        <span class="animated-number" data-value="{{ pourcentage_rural }}">0</span> %
+                    </h5>
+                    <p class="kpi-label font-medium opacity-90">Rural</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Capacité Autorisée -->
+        <div class="kpi-card kpi-blue text-white rounded-2xl shadow-lg text-center card-animated card-delay-3">
+            <i class="fa-solid fa-boxes-stacked kpi-icon mb-3"></i>
+            <h5 class="responsive-text-2xl font-bold mb-2">
+                <span class="animated-number" data-value="{{ capacite_autorisee_totale }}">0</span>
+            </h5>
+            <p class="responsive-text-sm font-medium opacity-90">Capacité Autorisée</p>
+        </div>
+
+        <!-- Nombre des associations -->
+        <div class="kpi-card kpi-yellow text-white rounded-2xl shadow-lg text-center card-animated card-delay-4">
+            <i class="fa-solid fa-handshake kpi-icon mb-3"></i>
+            <h5 class="responsive-text-2xl font-bold mb-2">
+                <span class="animated-number" data-value="{{ nombre_ass }}">0</span>
+            </h5>
+            <p class="responsive-text-sm font-medium opacity-90">Total des Associations</p>
+        </div>
+
+    </div>
+</section>
+
+<!-- Filtres -->
+<section class="w-full mx-auto responsive-mb-8 responsive-p-4 bg-white rounded shadow">
+    <form method="get" action="{% url 'centres' %}" class="responsive-flex justify-end mobile-stack">
+        <select name="annee" id="annee-select" class="mobile-full-width">
+            <option value="">-- Année --</option>
+            {% for annee in annees %}
+                <option value="{{ annee.id_periodicite }}" {% if selected_annee == annee.id_periodicite|stringformat:"s" %}selected{% endif %}>
+                    {{ annee.id_periodicite }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <select name="region" id="region-select" class="mobile-full-width">
+            <option value="">-- Région --</option>
+            {% for region in regions %}
+                <option value="{{ region.id_region }}" {% if selected_region == region.id_region|stringformat:"s" %}selected{% endif %}>
+                    {{ region.region }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <select name="delegation" id="delegation-select" class="mobile-full-width" disabled>
+            <option value="">-- Délégation --</option>
+            {% for deleg in delegations %}
+                {% if not selected_region or deleg.id_region == selected_region|add:""|stringformat:"s" %}
+                    <option value="{{ deleg.id_delegation }}" {% if selected_delegation == deleg.id_delegation|stringformat:"s" %}selected{% endif %}>
+                        {{ deleg.delegation }}
+                    </option>
+                {% endif %}
+            {% endfor %}
+        </select>
+
+        <button type="submit" class="bg-[#A554B7] text-white filter-btn hover:bg-purple-700 transition mobile-full-width">
+            Filtrer
+        </button>
+    </form>
+</section>
+
+<section class="w-full mx-auto space-y-8">
+    <div class="grid grid-cols-1 lg:grid-cols-2 responsive-gap-6">
+        <div class="chart-container bg-white rounded shadow h-responsive-600 w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="chart-title">Répartition des Centres par Milieu</h1>
+                <button class="export-btn" onclick="exportChartToPDF('chartCentreMilieu', 'Répartition des Centres par Milieu', 'doughnut')" title="Exporter en PDF">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+            </div>
+            <div style="position: relative; height: calc(100% - 40px);">
+                <canvas id="chartCentreMilieu"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-container bg-white rounded shadow h-responsive-600 w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="chart-title">Nombre des Centres par Milieu</h1>
+                <button class="export-btn" onclick="exportChartToPDF('chartCentre', 'Nombre des Centres par Milieu', 'bar')" title="Exporter en PDF">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+            </div>
+            <div style="position: relative; height: calc(100% - 40px);">
+                <canvas id="chartCentre"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-container bg-white rounded shadow h-responsive-700 w-full">
+        <div class="chart-header">
+            <h2 class="chart-title">Répartition des Centres</h2>
+            <div class="chart-controls">
+                <div class="filter-select-container">
+                    <select id="RepartitionFilter" class="filter-select">
+                        <option value="total">Total</option>
+                        <option value="urbain">Urbain</option>
+                        <option value="rural">Rural</option>
+                    </select>
+                    <i class="fa-solid fa-filter filter-icon"></i>
+                </div>
+                <button class="export-btn" onclick="exportChartToPDF('chartRepartitionCentre', 'Répartition des Centres', 'line')" title="Exporter en PDF">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="chartRepartitionCentre" class="w-full"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-container bg-white rounded shadow h-responsive-700 w-full">
+        <div class="chart-header">
+            <h1 class="chart-title">Évolution du nombre des Centres par Année</h1>
+            <div class="chart-controls">
+                <div class="filter-select-container">
+                    <select id="evolutionFilter" class="filter-select">
+                        <option value="total">Total</option>
+                        <option value="urbain">Urbain</option>
+                        <option value="rural">Rural</option>
+                        <option value="capacite">Capacité</option>
+                    </select>
+                    <i class="fa-solid fa-filter filter-icon"></i>
+                </div>
+                <button class="export-btn" onclick="exportChartToPDF('chartEvolutionCentre', 'Évolution des Centres', 'bar')" title="Exporter en PDF">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="chartEvolutionCentre" class="w-full"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-container bg-white rounded shadow min-h-[700px] w-full">
+        <div class="map-card">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
+            <h2>Carte Géographique</h2>
+            <div>
+                <button id="resetMap" class="reset-btn">Réinitialiser la carte</button>
+            </div>
+            </div>
+
+            <div id="map"
+                data-regions-url="{% url 'api_regions' %}"
+                data-delegations-url="{% url 'api_delegations' %}"
+                data-centres-url="{% url 'api_centres' %}"
+            ></div>
+        </div>
+
+    </div>
+
+</section>
+
+<!-- CSS Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<!-- JS Leaflet -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script src="{% static 'js/CountAnimation.js' %}" ></script>
+<script src="{% static 'js/delegationFiltre.js' %}" ></script>
+<script src="{% static 'js/export.js' %}" ></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const map = L.map("map").setView([31.7917, -7.0926], 6);
+
+    // Couche de fond
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+
+    // Légende dynamique
+    const legend = L.control({ position: "bottomright" });
+    legend.onAdd = function () {
+        const div = L.DomUtil.create("div", "info legend bg-white p-2 rounded shadow");
+        div.innerHTML = "<strong>Légende :</strong><br><span>Aucune région sélectionnée</span>";
+        return div;
+    };
+    legend.addTo(map);
+
+    // Couches Leaflet
+    let regionsLayer = null;
+    let delegationsLayer = null;
+
+    // Palette de couleurs
+    const colors = [
+        "#A554B7", "#4A90E2", "#50E3C2", "#F5A623",
+        "#7ED321", "#D0021B", "#9013FE", "#F8E71C"
+    ];
+
+    // Variables pour garder trace du style original
+    let selectedRegionLayer = null;
+    let selectedDelegationLayer = null;
+
+    // Charger les régions
+    async function loadRegions() {
+        try {
+            const response = await fetch("/api/regions/");
+            if (!response.ok) throw new Error("Erreur chargement régions");
+            const data = await response.json();
+
+            if (regionsLayer) map.removeLayer(regionsLayer);
+
+            regionsLayer = L.geoJSON(data, {
+                style: (feature) => {
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    return {
+                        color: "#555",
+                        weight: 1,
+                        fillColor: color,
+                        fillOpacity: 0.6
+                    };
+                },
+                onEachFeature: (feature, layer) => {
+                    const regionName = feature.properties.region;
+                    layer.bindTooltip(regionName);
+                    
+                    // Stocker le style original
+                    const originalStyle = {
+                        color: layer.options.color,
+                        weight: layer.options.weight,
+                        fillColor: layer.options.fillColor,
+                        fillOpacity: layer.options.fillOpacity
+                    };
+                    
+                    layer.on("click", (e) => {
+                        // Empêcher le comportement par défaut
+                        L.DomEvent.stopPropagation(e);
+                        
+                        // Réinitialiser le style de la région précédemment sélectionnée
+                        if (selectedRegionLayer && selectedRegionLayer !== layer) {
+                            selectedRegionLayer.setStyle(selectedRegionLayer.originalStyle);
+                        }
+                        
+                        // Sauvegarder le style original
+                        layer.originalStyle = originalStyle;
+                        selectedRegionLayer = layer;
+                        
+                        // Appliquer le même style (pas de changement visuel)
+                        layer.setStyle(originalStyle);
+                        
+                        map.fitBounds(layer.getBounds());
+                        loadDelegations(regionName);
+                    });
+                }
+            }).addTo(map);
+
+            // Mise à jour légende
+            const div = legend.getContainer();
+            div.innerHTML = "<strong>Régions :</strong><br>" +
+                data.features.map(f => f.properties.nom).join("<br>");
+        } catch (err) {
+            console.error("Erreur:", err);
+        }
+    }
+
+    // Charger les délégations pour une région
+    async function loadDelegations(regionName) {
+        try {
+            const response = await fetch(`/api/delegations/?region=${encodeURIComponent(regionName)}`);
+            if (!response.ok) throw new Error("Erreur chargement délégations");
+            const data = await response.json();
+
+            if (delegationsLayer) map.removeLayer(delegationsLayer);
+
+            delegationsLayer = L.geoJSON(data, {
+                style: (feature) => {
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    return {
+                        color: "#222",
+                        weight: 1,
+                        fillColor: color,
+                        fillOpacity: 0.7
+                    };
+                },
+                onEachFeature: (feature, layer) => {
+                    const delName = feature.properties.delegation;
+                    layer.bindTooltip(delName);
+                    
+                    // Stocker le style original
+                    const originalStyle = {
+                        color: layer.options.color,
+                        weight: layer.options.weight,
+                        fillColor: layer.options.fillColor,
+                        fillOpacity: layer.options.fillOpacity
+                    };
+                    
+                    layer.on("click", (e) => {
+                        // Empêcher le comportement par défaut
+                        L.DomEvent.stopPropagation(e);
+                        
+                        // Réinitialiser le style de la délégation précédemment sélectionnée
+                        if (selectedDelegationLayer && selectedDelegationLayer !== layer) {
+                            selectedDelegationLayer.setStyle(selectedDelegationLayer.originalStyle);
+                        }
+                        
+                        // Sauvegarder le style original
+                        layer.originalStyle = originalStyle;
+                        selectedDelegationLayer = layer;
+                        
+                        // Appliquer le même style (pas de changement visuel)
+                        layer.setStyle(originalStyle);
+                        
+                        loadCentres(delName);
+                    });
+                }
+            }).addTo(map);
+
+            const div = legend.getContainer();
+            div.innerHTML = `<strong>Délégations de ${regionName} :</strong><br>` +
+                data.features.map(f => f.properties.nom).join("<br>");
+
+        } catch (err) {
+            console.error("Erreur:", err);
+        }
+    }
+
+    let centresLayer = null;
+
+    async function loadCentres(delegationName) {
+        try {
+            const response = await fetch(`/api/centres/?delegation=${encodeURIComponent(delegationName)}`);
+            if (!response.ok) throw new Error("Erreur chargement centres");
+            const data = await response.json();
+
+            // Supprimer l'ancienne couche centres
+            if (centresLayer) map.removeLayer(centresLayer);
+
+            centresLayer = L.layerGroup(); // groupe de markers
+
+            data.forEach(c => {
+                const marker = L.circleMarker([c.latitude, c.longitude], {
+                    radius: 6,
+                    color: "#FF5722",
+                    fillColor: "#FF9800",
+                    fillOpacity: 0.8,
+                    weight: 1
+                }).bindPopup(`
+                    <strong>${c.nom}</strong><br>
+                    Délégation: ${c.delegation}<br>
+                    Axe: ${c.axe_updated}<br>
+                    Programme: ${c.programme_updated}<br>
+                    Bénéficiaires: ${c.nb_beneficiaires_t}
+                `);
+
+                centresLayer.addLayer(marker);
+            });
+
+            centresLayer.addTo(map);
+
+            // Mise à jour légende
+            const div = legend.getContainer();
+            div.innerHTML = `<strong>Centres de ${delegationName} :</strong><br>` +
+                data.map(c => c.nom).join("<br>");
+
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    // Bouton pour réinitialiser la carte
+    document.getElementById("resetMap").addEventListener("click", () => {
+        // Supprimer les couches
+        if (delegationsLayer) map.removeLayer(delegationsLayer);
+        if (centresLayer) map.removeLayer(centresLayer);
+        
+        // Réinitialiser les sélections
+        selectedRegionLayer = null;
+        selectedDelegationLayer = null;
+        
+        // Recharger les régions
+        map.setView([31.7917, -7.0926], 6);
+        loadRegions();
+    });
+
+    loadRegions();
+});
+</script>
+
+
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Initialiser chartInstances si nécessaire
+        window.chartInstances = window.chartInstances || {};
+        
+        // Attendre un peu que tous les éléments soient chargés
+        setTimeout(() => {
+            console.log('Initialisation des graphiques terminée');
+            
+            // Vérifier que tous les graphiques sont créés
+            const requiredCharts = [
+                'chartCentreMilieu', 'chartCentre', 'chartRepartitionCentre', 'chartEvolutionCentre'
+            ];
+            
+            let initCount = 0;
+            requiredCharts.forEach(id => {
+                const canvas = document.getElementById(id);
+                const chart = Chart.getChart(canvas);
+                if (canvas && chart) {
+                    initCount++;
+                    console.log(`✅ ${id} initialisé`);
+                } else {
+                    console.log(`❌ ${id} non initialisé`);
+                }
+            });
+            
+            console.log(`${initCount}/${requiredCharts.length} graphiques initialisés`);
+        }, 1000);
+    });
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Initialiser chartInstances
+        window.chartInstances = window.chartInstances || {};
+        // === Plugins globaux ===
+        const outerRingPlugin = {
+            id: 'outerRing',
+            afterDatasetDraw(chart, args, pluginOptions) {
+                const { ctx, _active } = chart;
+                if (_active && _active.length > 0) {
+                    const arc = _active[0].element;
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = arc.options.backgroundColor;
+                    ctx.arc(arc.x, arc.y, arc.outerRadius + 10, arc.startAngle, arc.endAngle);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+        };
+
+        const centerTextPlugin = {
+            id: 'centerTextRev',
+            beforeDraw(chart) {
+                const { width, height, ctx } = chart;
+                const dataset = chart.data.datasets[0].data;
+                const colors = chart.data.datasets[0].backgroundColor;
+                const total = dataset.reduce((a, b) => a + b, 0);
+                const activeIndex = chart._active?.[0]?.index;
+
+                // Valeur brute et label
+                const value = activeIndex !== undefined ? dataset[activeIndex] : total;
+                const label = activeIndex !== undefined ? chart.data.labels[activeIndex] : 'Total';
+                const color = activeIndex !== undefined ? colors[activeIndex] : '#333';
+
+                // Calcul pourcentage sans décimale inutile
+                const percentRaw = total ? (value / total) * 100 : 0;
+                const percent = (percentRaw % 1 === 0) ? percentRaw.toString() : percentRaw.toFixed(1);
+
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                // Afficher le pourcentage au centre
+                ctx.font = 'bold 28px sans-serif';
+                ctx.fillStyle = color;
+                ctx.fillText(percent + '%', width / 2, height / 1.9 - 30);
+
+                // Afficher le label en dessous (avec retour à la ligne)
+                ctx.font = 'bold 14px sans-serif';
+                const words = label.split(' ');
+                let line = '';
+                const lines = [];
+                const maxWidth = 140;
+
+                for (let n = 0; n < words.length; n++) {
+                    const testLine = line + words[n] + ' ';
+                    const metrics = ctx.measureText(testLine);
+                    if (metrics.width > maxWidth && n > 0) {
+                        lines.push(line.trim());
+                        line = words[n] + ' ';
+                    } else {
+                        line = testLine;
+                    }
+                }
+                lines.push(line.trim());
+
+                const lineHeight = 25;
+                lines.forEach((l, i) => {
+                    ctx.fillText(l, width / 2, height / 1.8 + (i * lineHeight));
+                });
+
+                ctx.restore();
+            }
+        };
+
+        let activeIndex = -1;
+
+        // === Chart 1: Répartition par milieu ===
+        const milieuData = {
+            labels: {{labels_milieu | safe}},
+            datasets: [{
+                label: '',
+                data: {{ total_milieu | safe }},
+                backgroundColor: ['#2E446A', '#F4A261'],
+                hoverOffset: 10,
+            }]
+        };
+
+        new Chart(document.getElementById('chartCentreMilieu'), {
+            type: 'doughnut',
+            data: milieuData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                layout: { padding: 30 },
+                animation: {
+                    animateRotate: true,
+                    animateScale: true,
+                    duration: 350,
+                    easing: 'easeOutBounce'
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        callbacks: {
+                            label: function (context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const value = context.parsed;
+                                const percent = total ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+                                return `${context.label}: ${value} (${percent})`;
+                            }
+                        }
+                    }
+                },
+                onHover: (event, elements) => {
+                    activeIndex = elements.length > 0 ? elements[0].index : -1;
+                }
+            },
+            plugins: [outerRingPlugin, centerTextPlugin]
+        });
+    });
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctxCentre = document.getElementById('chartCentre').getContext('2d');
+        const barCentreChart = new Chart(ctxCentre, {
+            type: 'bar',
+            data: {
+                labels: {{labels_milieu | safe}},
+                datasets: [{
+                    data: {{ total_milieu | safe }},
+                    backgroundColor: ['#2E446A', '#F4A261']
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        title: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+
+<script>
+    let centreChart;
+
+    function updateCentreChart() {
+        const filtre = document.getElementById("RepartitionFilter").value;
+        const annee = "{{ selected_annee }}";
+        const region = "{{ selected_region|default:'' }}";
+
+        const url = `/api/repartition-centres/?filtre=${filtre}&annee=${annee}&region=${region}`;
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                const ctx = document.getElementById("chartRepartitionCentre").getContext("2d");
+                if (centreChart) centreChart.destroy();
+
+                centreChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: `Centres (${filtre})`,
+                            data: data.data,
+                            borderColor: '#0984e3',
+                            backgroundColor: '#74b9ff55',
+                            tension: 0.3,
+                            fill: true,
+                            pointBackgroundColor: '#0984e3'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0
+                                }
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error("Erreur lors du chargement des données:", error);
+            });
+    }
+
+    // Initialiser le graphe au chargement
+    window.addEventListener('DOMContentLoaded', () => {
+        updateCentreChart();
+        document.getElementById("RepartitionFilter").addEventListener("change", updateCentreChart);
+    });
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const labels_centre = {{ labels_dates|safe }};
+
+        // Objet contenant tous les jeux de données pour le graphique
+        const dataSetsCentre = {
+            total: {
+                label: "Centres (Total)",
+                data: {{ values_centre|safe }},
+                backgroundColor: "#A554B7"
+            },
+            urbain: {
+                label: "Centres (Urbain)",
+                data: {{ urbain_evol|safe }},
+                backgroundColor: "#2E86AB"
+            },
+            rural: {
+                label: "Centres (Rural)",
+                data: {{ rural_evol|safe }},
+                backgroundColor: "#59824A"
+            },
+            capacite: {
+                label: "Centres (Capacité)",
+                data: {{ capacite_evol|safe }},
+                backgroundColor: "#FF9800"
+            }
+        };
+
+        // Création du graphique
+        const ctxCentreEvol = document.getElementById("chartEvolutionCentre").getContext("2d");
+        const chartCentre = new Chart(ctxCentreEvol, {
+            type: "bar",
+            data: {
+                labels: labels_centre,
+                datasets: [dataSetsCentre["total"]]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: "Nombre de Centres"
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: "Année"
+                        }
+                    }
+                }
+            }
+        });
+
+        // Gestion du changement de filtre
+        document.getElementById("evolutionFilter").addEventListener("change", function () {
+            const selected = this.value;
+            chartCentre.data.datasets = [dataSetsCentre[selected]];
+            chartCentre.update();
+        });
+    });   
+</script>
+
+
+
+{% endblock %}

@@ -1,0 +1,214 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Carte interactive du Maroc</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+
+        /* Styles pour les labels de région */
+        .region-label {
+            font-size: 14px;
+            color: #2c3e50;
+            font-weight: bold;
+            background-color: rgba(255,255,255,0.8);
+            padding: 4px 6px;
+            border-radius: 4px;
+            box-shadow: 0 0 4px rgba(0,0,0,0.3);
+            /* Centrage du texte à l'intérieur de l'icône */
+            display: flex;
+            align-items: center; /* Centrage vertical */
+            justify-content: center; /* Centrage horizontal */
+            line-height: 1; /* Assure que la hauteur de ligne n'ajoute pas d'espace indésirable */
+        }
+
+        /* Styles pour les labels de délégation */
+        .delegation-label {
+            font-size: 12px;
+            font-weight: bold;
+            color: #1a5d1a;
+            background-color: rgba(255, 255, 255, 0.85);
+            padding: 3px 6px;
+            border-radius: 4px;
+            box-shadow: 0 0 3px rgba(0,0,0,0.25);
+            /* Centrage du texte à l'intérieur de l'icône */
+            display: flex;
+            align-items: center; /* Centrage vertical */
+            justify-content: center; /* Centrage horizontal */
+            line-height: 1; /* Assure que la hauteur de ligne n'ajoute pas d'espace indésirable */
+        }
+
+        .leaflet-control-custom {
+            background-color: white;
+            padding: 6px 8px;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+            cursor: pointer;
+        }
+
+        .leaflet-pane.leaflet-overlay-pane svg {
+            transform-style: preserve-3d;
+            will-change: transform;
+        }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+<script>
+    const map = L.map('map', {
+        zoomControl: true,
+        preferCanvas: true 
+    }).setView([31.7917, -7.0926], 6);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        attribution: '© OpenStreetMap contributors, HOT'
+    }).addTo(map);
+
+    const regionStyle = {
+        color: "#6A0DAD",
+        weight: 2,
+        fillOpacity: 0.2
+    };
+
+    const delegationStyle = {
+        color: "#FF8C00",
+        weight: 2,
+        fillOpacity: 0.35
+    };
+
+    let delegationLayer = null;
+    let centreMarkers = [];
+    window.regionLabels = [];
+    window.delegationLabels = [];
+
+    // Fetch regions
+    fetch("{% static 'geojson/region.geojson' %}")
+        .then(res => res.json())
+        .then(data => {
+            const regionGeo = L.geoJSON(data, {
+                style: regionStyle,
+                onEachFeature: (feature, layer) => {
+                    const regionNom = feature.properties.region;
+                    const center = layer.getBounds().getCenter();
+
+                    const label = L.marker(center, {
+                        icon: L.divIcon({
+                            className: 'region-label',
+                            html: regionNom,
+                            iconSize: [100, 20], // Taille fixe de l'icône
+                            iconAnchor: [50, 10] // Centre de l'icône (moitié de iconSize)
+                        })
+                    }).addTo(map);
+                    window.regionLabels.push(label);
+
+                    layer.on('click', () => {
+                        map.fitBounds(layer.getBounds());
+
+                        // Supprimer labels région
+                        window.regionLabels.forEach(l => map.removeLayer(l));
+                        window.regionLabels = [];
+
+                        loadDelegations(regionNom);
+                    });
+
+                    // Highlight on hover
+                    layer.on('mouseover', () => layer.setStyle({ fillOpacity: 0.4 }));
+                    layer.on('mouseout', () => layer.setStyle({ fillOpacity: 0.2 }));
+                }
+            }).addTo(map);
+        });
+
+    function loadDelegations(regionNom) {
+        if (delegationLayer) map.removeLayer(delegationLayer);
+        centreMarkers.forEach(m => map.removeLayer(m));
+        centreMarkers = [];
+
+        window.delegationLabels.forEach(l => map.removeLayer(l));
+        window.delegationLabels = [];
+
+        fetch("{% static 'geojson/delegations.geojson' %}")
+            .then(res => res.json())
+            .then(data => {
+                const filtered = {
+                    ...data,
+                    features: data.features.filter(f => f.properties.region === regionNom)
+                };
+
+                delegationLayer = L.geoJSON(filtered, {
+                    style: delegationStyle,
+                    onEachFeature: (feature, layer) => {
+                        const delNom = feature.properties.delegation;
+
+                        layer.on('click', () => {
+                            map.fitBounds(layer.getBounds());
+                            loadCentres(delNom);
+                        });
+
+                        const center = layer.getBounds().getCenter();
+                        const label = L.marker(center, {
+                            icon: L.divIcon({
+                                className: 'delegation-label',
+                                html: delNom,
+                                iconSize: [100, 20], // Taille fixe de l'icône
+                                iconAnchor: [50, 10] // Centre de l'icône (moitié de iconSize)
+                            })
+                        }).addTo(map);
+                        window.delegationLabels.push(label);
+
+                        layer.on('mouseover', () => layer.setStyle({ fillOpacity: 0.5 }));
+                        layer.on('mouseout', () => layer.setStyle({ fillOpacity: 0.35 }));
+                    }
+                }).addTo(map);
+            });
+    }
+
+    function loadCentres(delegationNom) {
+        centreMarkers.forEach(m => map.removeLayer(m));
+        centreMarkers = [];
+
+        // Appel à l'API backend pour les centres
+        fetch(`/api/centres/?delegation=${encodeURIComponent(delegationNom)}`)
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`Erreur HTTP! Statut: ${res.status}`);
+                }
+                return res.json();
+            })
+            .then(data => {
+                data.forEach(c => {
+                    const marker = L.marker([c.latitude, c.longitude], {
+                        icon: L.icon({
+                            iconUrl: 'https://cdn-icons-png.flaticon.com/512/484/484167.png',
+                            iconSize: [25, 25],
+                            iconAnchor: [12, 24],
+                            popupAnchor: [0, -20]
+                        })
+                    }).bindPopup(`<strong>Centre :</strong> ${c.nom}<br><strong>Axe :</strong> ${c.axe_updated}<br><strong>Programme :</strong> ${c.programme_updated}<br><strong>Nombre Bénéficiaires :</strong> ${c.nb_beneficiaires_t}`);
+                    marker.addTo(map);
+                    centreMarkers.push(marker);
+                });
+            })
+            .catch(error => {
+                console.error("Erreur lors du chargement des centres :", error);
+                // Vous pouvez afficher un message d'erreur à l'utilisateur ici si nécessaire
+            });
+    }
+</script>
+</body>
+</html>

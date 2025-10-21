@@ -1,0 +1,621 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+{% endblock %}
+
+
+{% block content %}
+
+<link rel="stylesheet" href="{% static 'css/home.css' %}">
+
+
+{% if user.is_authenticated %}
+<div id="welcome-message" class="welcome-card relative z-10" style="display: none;">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-3xl font-bold mb-2">Bonjour, {{ user.username }} !</h2>
+            <p class="text-purple-100 text-lg">Tableau de bord des statistiques {{ latest_year }} - Entraide Nationale</p>
+            <div class="mt-3">
+                <span class="metric-badge">
+                    <i class="fas fa-chart-line mr-2"></i>
+                    Données mises à jour le {{ last_updated }}
+                </span>
+            </div>
+        </div>
+        <div class="text-6xl opacity-30">
+            <i class="fas fa-hands-helping"></i>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Répartition démographique -->
+<section class="mb-8">
+    <img src="{% static 'images/logo.png' %}" alt="Logo" class="mx-auto block mb-2 pb-3" style="width: 600px; height: 100px;">
+    <h2 class="text-3xl font-bold text-center text-gray-800 mb-2 pb-3">
+        <span class="main-title">Les Populations Cibles</span>
+    </h2>
+    <div class="title-underline"></div>
+    <p class="text-center text-gray-600 text-lg mb-8">pour l'année {{ latest_year }}</p>
+    
+    <div class="demographics-grid">
+        <div class="stat-card card-children card-animated card-delay-1">
+            <div class="icon-container">
+                <i class="fas fa-child"></i>
+            </div>
+            <h4 class="card-title">Enfants en situation difficile</h4>
+            <p class="count-number">{{ enfants|intcomma }}</p>
+            <p class="beneficiary-text">Bénéficiaires</p>
+        </div>
+
+        <div class="stat-card card-women card-animated card-delay-2">
+            <div class="icon-container">
+                <i class="fas fa-female"></i>
+            </div>
+            <h4 class="card-title">Femmes en situation difficile</h4>
+            <p class="count-number">{{ femmes|intcomma }}</p>
+            <p class="beneficiary-text">Bénéficiaires</p>
+        </div>
+
+        <div class="stat-card card-seniors card-animated card-delay-3">
+            <div class="icon-container">
+                <i class="fas fa-user-check"></i>
+            </div>
+            <h4 class="card-title">Personnes âgées en situation difficile</h4>
+            <p class="count-number">{{ seniors|intcomma }}</p>
+            <p class="beneficiary-text"> Bénéficiaires</p>
+        </div>
+
+        <div class="stat-card card-disabled card-animated card-delay-4">
+            <div class="icon-container">
+                <i class="fas fa-wheelchair"></i>
+            </div>
+            <h4 class="card-title">Personnes en situation d'handicap</h4>
+            <p class="count-number">{{ handicap|intcomma }}</p>
+            <p class="beneficiary-text">Bénéficiaires</p>
+        </div>
+    </div>
+
+    <div class="stats-summary card-animated" style="animation-delay: 0.9s;">
+        <h3>Total des Bénéficiaires</h3>
+        <div class="total-beneficiaries">{{ enfants|add:femmes|add:seniors|add:handicap|intcomma }}</div>
+        <p class="sub-text">Personnes accompagnées cette année</p>
+    </div>
+</section>
+
+<!-- Graphiques -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+    <!-- Statistiques régionales -->
+    <div class="info-card">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <i class="fas fa-map-marked-alt text-blue-500 mr-3"></i>
+            Top Régions par Bénéficiaires
+        </h3>
+        <div class="chart-container mb-4">
+            <canvas id="regionalChart"></canvas>
+        </div>
+        <div class="regional-stats space-y-3">
+            {% for region in regional_stats|slice:":5" %}
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                    <h4 class="font-medium text-gray-800">{{ region.region }}</h4>
+                    <p class="text-sm text-gray-600">{{ region.delegations }} délégations</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-lg font-bold text-blue-600">{{ region.beneficiaires|floatformat:0|intcomma }}</p>
+                    <p class="text-xs text-gray-500">bénéficiaires</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Programmes les plus actifs -->
+    <div class="info-card">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <i class="fas fa-star text-yellow-500 mr-3"></i>
+            Programmes les Plus Actifs
+        </h3>
+        <div class="chart-container mb-4">
+            <canvas id="programsChart"></canvas>
+        </div>
+        <div class="space-y-3">
+            {% for programme in top_programmes|slice:":5" %}
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div class="flex-1">
+                    <h4 class="font-medium text-gray-800 text-sm">{{ programme.programme_updated|truncatechars:30 }}</h4>
+                    <p class="text-xs text-gray-600"> {{ programme.nb_delegations }} délégations</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-lg font-bold text-purple-600">{{ programme.total_benef|floatformat:0|intcomma }}</p>
+                    <p class="text-xs text-gray-500">bénéficiaires</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Activités récentes et infos système (réorganisées) -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+    <!-- Activités récentes -->
+    <div class="info-card">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <i class="fas fa-clock text-orange-500 mr-3"></i>
+            Activités Récentes
+        </h3>
+        <div class="space-y-3">
+            {% for activity in recent_activities %}
+            <div class="activity-item flex items-start space-x-3 p-3">
+                <div class="bg-{{ activity.color }}-100 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <i class="fas {{ activity.icon }} text-{{ activity.color }}-600 text-sm"></i>
+                </div>
+                <div class="flex-1">
+                    <p class="font-medium text-gray-800 text-sm">{{ activity.title }}</p>
+                    <p class="text-xs text-gray-600">{{ activity.description }}</p>
+                    <p class="text-xs text-gray-500 mt-1">{{ activity.time }}</p>
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-8 text-gray-500">
+                <i class="fas fa-info-circle text-2xl mb-2"></i>
+                <p>Aucune activité récente disponible</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Informations système avec performance intégrée -->
+    <div class="info-card">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <i class="fas fa-info-circle text-green-500 mr-3"></i>
+            Informations Système
+            <span class="ml-auto text-xs text-gray-500" id="last-system-check">{{ last_check }}</span>
+        </h3>
+        
+        <div class="space-y-3">
+            <!-- Version système -->
+            <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-gray-600 flex items-center">
+                    <i class="fas fa-code-branch text-blue-500 mr-2"></i>
+                    Version du système:
+                </span>
+                <span class="font-semibold text-gray-800">{{ version_systeme }}</span>
+            </div>
+            
+            <!-- Dernière mise à jour -->
+            <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-gray-600 flex items-center">
+                    <i class="fas fa-clock text-orange-500 mr-2"></i>
+                    Dernière mise à jour:
+                </span>
+                <span class="font-semibold text-gray-800">{{ derniere_maj }}</span>
+            </div>
+            
+            <!-- Base de données avec status dynamique -->
+            <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-gray-600 flex items-center">
+                    <i class="fas fa-database text-purple-500 mr-2"></i>
+                    Base de données:
+                </span>
+                <span class="font-semibold {{ statut_bd_color }} flex items-center">
+                    <i class="fas {{ statut_bd_icon }} mr-2"></i>
+                    {{ statut_bd }}
+                    <span class="ml-2 text-xs text-gray-500">({{ database_size }})</span>
+                </span>
+            </div>
+            
+            <!-- Utilisateurs connectés avec indicateur temps réel -->
+            <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-gray-600 flex items-center">
+                    <i class="fas fa-users text-indigo-500 mr-2"></i>
+                    Utilisateurs connectés:
+                </span>
+                <span class="font-semibold text-gray-800 flex items-center" id="active-users">
+                    {{ utilisateurs_connectes }}
+                    <span class="ml-2 h-2 w-2 bg-green-500 rounded-full animate-pulse" title="Temps réel"></span>
+                </span>
+            </div>
+            
+            <!-- Année de référence -->
+            <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-gray-600 flex items-center">
+                    <i class="fas fa-calendar text-purple-500 mr-2"></i>
+                    Année de référence:
+                </span>
+                <span class="font-semibold text-purple-600">{{ latest_year }}</span>
+            </div>
+            
+            <!-- Uptime serveur -->
+            <div class="flex justify-between items-center py-2">
+                <span class="text-gray-600 flex items-center">
+                    <i class="fas fa-server text-green-500 mr-2"></i>
+                    Uptime serveur:
+                </span>
+                <span class="font-semibold text-gray-800">{{ server_uptime }}</span>
+            </div>
+        </div>
+
+        <!-- Section Performance Système intégrée -->
+        <div class="performance-metrics">
+            <h4 class="text-md font-semibold text-gray-800 mb-3 flex items-center">
+                <i class="fas fa-chart-line text-blue-500 mr-2"></i>
+                Performance Système
+            </h4>
+            
+            <div class="performance-grid">
+                <!-- CPU Usage -->
+                <div class="metric-item">
+                    <div class="metric-label">CPU</div>
+                    <div class="metric-value">{{ cpu_usage }}%</div>
+                    <div class="metric-bar">
+                        <div class="metric-bar-fill bg-blue-500" style="width: {{ cpu_usage }}%"></div>
+                    </div>
+                </div>
+                
+                <!-- Memory Usage -->
+                <div class="metric-item">
+                    <div class="metric-label">Mémoire</div>
+                    <div class="metric-value">{{ memory_usage }}%</div>
+                    <div class="metric-bar">
+                        <div class="metric-bar-fill bg-green-500" style="width: {{ memory_usage }}%"></div>
+                    </div>
+                    <div class="metric-detail">{{ memory_used_gb }}/{{ memory_total_gb }} GB</div>
+                </div>
+                
+                <!-- Disk Usage -->
+                <div class="metric-item">
+                    <div class="metric-label">Disque</div>
+                    <div class="metric-value">{{ disk_usage }}%</div>
+                    <div class="metric-bar">
+                        <div class="metric-bar-fill bg-yellow-500" style="width: {{ disk_usage }}%"></div>
+                    </div>
+                    <div class="metric-detail">{{ disk_used_gb }}/{{ disk_total_gb }} GB</div>
+                </div>
+                
+                <!-- Performance Score -->
+                <div class="metric-item">
+                    <div class="metric-label">Efficacité</div>
+                    <div class="metric-value">{{ score_efficacite }}%</div>
+                    <div class="metric-bar">
+                        <div class="metric-bar-fill bg-purple-500" style="width: {{ score_efficacite }}%"></div>
+                    </div>
+                    <div class="metric-detail">{{ performance_status }}</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bouton de rafraîchissement unifié -->
+        <div class="mt-4 text-center">
+            <button onclick="refreshSystemInfo()" class="refresh-system-btn">
+                <i class="fas fa-sync-alt mr-2" id="refresh-icon"></i>
+                Actualiser les données système
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript pour la mise à jour temps réel -->
+<script>
+function refreshSystemInfo() {
+    const refreshIcon = document.getElementById('refresh-icon');
+    refreshIcon.classList.add('animate-spin');
+    
+    fetch('/dashboard/api/system-info/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mettre à jour les utilisateurs connectés
+                document.getElementById('active-users').innerHTML = `
+                    ${data.data.utilisateurs_connectes}
+                    <span class="ml-2 h-2 w-2 bg-green-500 rounded-full animate-pulse" title="Temps réel"></span>
+                `;
+                
+                // Mettre à jour l'heure de vérification
+                document.getElementById('last-system-check').textContent = data.data.last_check;
+                
+                // Optionnel: Mettre à jour d'autres métriques si elles ont changé
+                console.log('Informations système mises à jour');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors de la mise à jour:', error);
+        })
+        .finally(() => {
+            refreshIcon.classList.remove('animate-spin');
+        });
+}
+
+// Auto-refresh toutes les 30 secondes pour les utilisateurs connectés
+setInterval(() => {
+    fetch('/dashboard/api/system-info/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('active-users').innerHTML = `
+                    ${data.data.utilisateurs_connectes}
+                    <span class="ml-2 h-2 w-2 bg-green-500 rounded-full animate-pulse" title="Temps réel"></span>
+                `;
+            }
+        })
+        .catch(error => console.error('Auto-refresh error:', error));
+}, 30000); // 30 secondes
+</script>
+
+<script>
+// Variables globales pour les données des graphiques
+const chartData = JSON.parse('{{ chart_data|escapejs }}');
+
+// Configuration des couleurs
+const colors = {
+    primary: '#A554B7',
+    secondary: '#764ba2',
+    success: '#10B981',
+    warning: '#F59E0B',
+    info: '#3B82F6',
+    gradients: [
+        'rgba(165, 84, 183, 0.8)',
+        'rgba(118, 75, 162, 0.8)',
+        'rgba(59, 130, 246, 0.8)',
+        'rgba(16, 185, 129, 0.8)',
+        'rgba(245, 158, 11, 0.8)'
+    ]
+};
+
+// Graphique régional
+function initRegionalChart() {
+    const ctx = document.getElementById('regionalChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: chartData.regional_labels.slice(0, 5),
+            datasets: [{
+                data: chartData.regional_beneficiaires.slice(0, 5),
+                backgroundColor: colors.gradients,
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 15,
+                        usePointStyle: true,
+                        font: { size: 11 }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.label + ': ' + context.parsed.toLocaleString() + ' bénéficiaires';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Graphique des programmes
+function initProgramsChart() {
+    const ctx = document.getElementById('programsChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: chartData.programs_labels.slice(0, 5),
+            datasets: [{
+                label: 'Bénéficiaires',
+                data: chartData.programs_beneficiaires.slice(0, 5),
+                backgroundColor: colors.gradients[0],
+                borderColor: colors.primary,
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Bénéficiaires: ' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
+                    }
+                },
+                x: {
+                    ticks: {
+                            autoSkip: false,
+                            font: {
+                                size: 10
+                            },
+                            callback: function(value, index, ticks) {
+                                const label = this.getLabelForValue(value);
+                                // Retour à la ligne toutes les 4-5 mots ou 25 caractères
+                                const words = label.split(" ");
+                                const lines = [];
+                                let line = "";
+
+                                words.forEach(word => {
+                                    if ((line + word).length > 25) {
+                                        lines.push(line.trim());
+                                        line = word + " ";
+                                    } else {
+                                        line += word + " ";
+                                    }
+                                });
+
+                                if (line) lines.push(line.trim());
+
+                                return lines;
+                            }
+                        }
+                }
+            }
+        }
+    });
+}
+
+// Message de bienvenue
+function showWelcomeMessage() {
+    if (!sessionStorage.getItem("welcomeShown")) {
+        const welcomeSection = document.getElementById("welcome-message");
+        if (welcomeSection) {
+            welcomeSection.style.display = "block";
+            welcomeSection.style.transition = "opacity 1s ease";
+            welcomeSection.style.opacity = "1";
+
+            setTimeout(() => {
+                welcomeSection.style.opacity = "0";
+                setTimeout(() => welcomeSection.style.display = "none", 1000);
+            }, 6000);
+
+            sessionStorage.setItem("welcomeShown", "true");
+        }
+    }
+}
+
+// Fonction de rafraîchissement des données
+function refreshDashboard() {
+    const button = document.getElementById('refreshButton');
+    const icon = button.querySelector('i');
+    
+    icon.classList.add('fa-spin');
+    button.disabled = true;
+    
+    fetch('{% url "dashboard_api_stats" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Ici vous pourriez mettre à jour les valeurs dans le DOM
+                console.log('Données actualisées:', data.data);
+                
+                // Simulation d'une notification
+                showNotification('Données actualisées avec succès', 'success');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors du rafraîchissement:', error);
+            showNotification('Erreur lors de l\'actualisation', 'error');
+        })
+        .finally(() => {
+            setTimeout(() => {
+                icon.classList.remove('fa-spin');
+                button.disabled = false;
+            }, 1000);
+        });
+}
+
+// Fonction pour afficher les notifications
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${type === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white`;
+    notification.innerHTML = `
+        <div class="flex items-center">
+            <i class="fas ${type === 'success' ? 'fa-check' : 'fa-times'} mr-2"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// Animation des cartes au scroll
+function animateOnScroll() {
+    const cards = document.querySelectorAll('.card-animated');
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, { threshold: 0.1 });
+
+    cards.forEach(card => observer.observe(card));
+}
+
+// Initialisation au chargement de la page
+document.addEventListener("DOMContentLoaded", function() {
+    showWelcomeMessage();
+    animateOnScroll();
+    
+    // Initialiser les graphiques après un court délai
+    setTimeout(() => {
+        initRegionalChart();
+        initProgramsChart();
+    }, 500);
+});
+</script>
+
+<script>
+// Fonction pour préserver les paramètres lors de la pagination
+function preserveUrlParams(newParams = {}) {
+    const url = new URL(window.location);
+    const params = new URLSearchParams(url.search);
+    
+    // Ajouter/modifier les nouveaux paramètres
+    Object.keys(newParams).forEach(key => {
+        if (newParams[key] !== null && newParams[key] !== undefined) {
+            params.set(key, newParams[key]);
+        } else {
+            params.delete(key);
+        }
+    });
+    
+    return `${url.pathname}?${params.toString()}`;
+}
+
+// Gérer le changement de limite avec conservation de la page si possible
+function handleLimitChange() {
+    const limitSelect = document.getElementById('displayCount');
+    if (!limitSelect) return;
+    
+    limitSelect.addEventListener('change', function(e) {
+        const newLimit = e.target.value;
+        const currentPage = {{ rows.number|default:1 }};
+        const totalItems = {{ rows.paginator.count|default:0 }};
+        
+        // Calculer la nouvelle page approximative
+        const currentStartIndex = {{ rows.start_index|default:1 }};
+        const newPage = Math.ceil(currentStartIndex / newLimit);
+        
+        window.location.href = preserveUrlParams({
+            limit: newLimit,
+            page: newPage
+        });
+    });
+}
+
+// Initialiser la gestion de la pagination
+document.addEventListener('DOMContentLoaded', function() {
+    handleLimitChange();
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,467 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8" />
+    <link rel="website icon" type="png" href="{% static 'images/icon.png' %}">
+    <title>{% block title %}Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+
+    {{ form.media }}
+
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+
+
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar-modern sidebar-mobile fixed inset-y-0 left-0 text-white shadow-2xl z-40 overflow-hidden flex flex-col w-64 md:w-80 -translate-x-full transition-transform duration-300 md:translate-x-0">            
+            <!-- Logo Section -->
+            <div class="logo-section text-center flex-shrink-0">
+                <div class="logo-icon mx-auto mb-3 rounded-full flex items-center justify-center animate-glow">
+                    <i class="fas fa-chart-line text-xl text-white animate-iconFloat"></i>
+                </div>
+                <h1 class="font-bold">
+                    Entraide Nationale
+                </h1>
+                <p class="mt-1">Dashboard des Statistiques</p>
+            </div>
+
+            <!-- Navigation principale - scrollable -->
+            <div class="flex-1 overflow-y-auto">
+                <nav class="px-3 py-4 space-y-1">
+                    <div class="menu-section-title">
+                        Menu Principal
+                    </div>
+
+                    {% if request.resolver_match.url_name in 'admin_dashboard,user_dashboard,home' %}
+                    <a href="{% url 'home' %}" 
+                    class="sidebar-item flex items-center gap-3 active">
+                    {% else %}
+                    <a href="{% url 'home' %}" 
+                    class="sidebar-item flex items-center gap-3">
+                    {% endif %}
+                        <i class="fas fa-home icon text-sm"></i>
+                        <span class="font-medium">Accueil</span>
+                    </a>
+                    
+
+                    <a href="{% url 'beneficiaires' %}" 
+                       class="sidebar-item flex items-center gap-3
+                              {% if request.resolver_match.url_name == 'beneficiaires' %}active{% endif %}">
+                        <i class="fas fa-users icon text-sm"></i>
+                        <span class="font-medium">Bénéficiaires</span>
+                    </a>
+
+                    <a href="{% url 'centres' %}" 
+                       class="sidebar-item flex items-center gap-3
+                              {% if request.resolver_match.url_name == 'centres' %}active{% endif %}">
+                        <i class="fas fa-building icon text-sm"></i>
+                        <span class="font-medium">Centres</span>
+                    </a>
+
+                    <a href="{% url 'axe&programme' %}" 
+                       class="sidebar-item flex items-center gap-3
+                              {% if request.resolver_match.url_name == 'axe&programme' %}active{% endif %}">
+                        <i class="fas fa-project-diagram icon text-sm"></i>
+                        <span class="font-medium">Axes et Programmes</span>
+                    </a>
+
+                    {% if user.is_superuser %}
+                    <a href="{% url 'personnel' %}" 
+                       class="sidebar-item flex items-center gap-3
+                              {% if request.resolver_match.url_name == 'personnel' %}active{% endif %}">
+                        <i class="fas fa-user-tie icon text-sm"></i>
+                        <span class="font-medium">Personnel</span>
+                    </a>
+                    
+
+                    <!-- Sous-menu Base de données -->
+                    <div class="nav-section">
+                        <div class="menu-section-title">
+                            Base de Données
+                        </div>
+                        <button id="databaseBtn" class="sidebar-item flex items-center gap-3 w-full text-left">
+                            <i class="fas fa-database icon text-sm"></i>
+                            <span class="font-medium">Base de données</span>
+                            <svg id="databaseArrow" class="ml-auto w-3 h-3 transition-transform duration-300" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                            </svg>
+                        </button>
+                        <div id="databaseSubmenu" class="submenu mt-1 space-y-1 hidden">
+                            <a href="{% url 'get_tables' %}" 
+                               class="submenu-item flex items-center gap-2
+                                      {% if request.resolver_match.url_name == 'get_tables' %}active{% endif %}">
+                                <i class="fas fa-table"></i>
+                                <span>Tables</span>
+                            </a>
+                            <a href="{% url 'add_annuaire' %}" 
+                               class="submenu-item flex items-center gap-2
+                                      {% if request.resolver_match.url_name == 'add_annuaire' %}active{% endif %}">
+                                <i class="fas fa-plus-circle"></i>
+                                <span>Ajouter un Annuaire</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Sous-menu Paramètres -->
+                    <div class="nav-section">
+                        <div class="menu-section-title">
+                            Configuration
+                        </div>
+                        <button id="settingsBtn" class="sidebar-item flex items-center gap-3 w-full text-left">
+                            <i class="fas fa-cog icon text-sm"></i>
+                            <span class="font-medium">Paramètres</span>
+                            <svg id="settingsArrow" class="ml-auto w-3 h-3 transition-transform duration-300" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                            </svg>
+                        </button>
+                        <div id="settingsSubmenu" class="submenu mt-1 space-y-1 hidden">
+                            <a href="{% url 'profile' %}" 
+                               class="submenu-item flex items-center gap-2
+                                      {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+                                <i class="fas fa-id-badge"></i>
+                                <span>Profil</span>
+                            </a>
+                            {% if user.is_superuser %}
+                            <a href="{% url 'user_list' %}" 
+                               class="submenu-item flex items-center gap-2
+                                      {% if request.resolver_match.url_name == 'user_list' %}active{% endif %}">
+                                <i class="fas fa-users-cog"></i>
+                                <span>Utilisateurs</span>
+                            </a>
+                            {% endif %}
+                            <a href="{% url 'user_password_change' %}" 
+                               class="submenu-item flex items-center gap-2
+                                      {% if request.resolver_match.url_name == 'user_password_change' %}active{% endif %}">
+                                <i class="fas fa-key"></i>
+                                <span>Mot de passe</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    {% endif %}
+                </nav>
+            </div>
+
+            <!-- Section utilisateur - fixée en bas -->
+            <div class="user-section flex-shrink-0">
+                <div class="user-info flex items-center gap-3">
+                    <div class="user-avatar rounded-full flex items-center justify-center overflow-hidden">
+                        {% if user.profile_picture and not request.GET.remove_profile_picture %}
+                            <img src="{{ user.profile_picture.url }}" alt="Photo de profil" 
+                                class="w-full h-full object-cover">
+                        {% else %}
+                            <img src="{% static 'images/avatar.jpg' %}" alt="Photo de profil par défaut" 
+                                class="w-full h-full object-cover">
+                        {% endif %}
+                    </div>
+                    <div class="flex-1">
+                        <div class="username font-semibold">{{ user.username }}</div>
+                        <div class="status">En ligne</div>
+                    </div>
+                    <div class="notification-badge rounded-full animate-pulse"></div>
+                </div>
+
+                <!-- Bouton de déconnexion -->
+                <form id="logout-form" action="{% url 'logout' %}" method="post">
+                    {% csrf_token %}
+                    <button type="submit" 
+                            class="logout-btn w-full text-white font-medium hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2 group">
+                        <i class="fas fa-sign-out-alt group-hover:transform group-hover:translate-x-1 transition-transform text-sm"></i>
+                        <span>Déconnexion</span>
+                    </button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- Overlay pour mobile -->
+        <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden md:hidden"></div>
+        
+        <!-- Contenu principal -->
+        <div class="main-content flex-1 flex flex-col">
+            <!-- Header -->
+            <header class="main-header bg-white shadow-md border-b border-gray-200 flex items-center justify-between">
+                <!-- Bouton menu mobile -->
+                <button id="menuBtn" class="md:hidden toggle-btn text-white rounded-md">
+                    <i class="fas fa-bars text-md"></i>
+                </button>
+
+                <h1 class="font-bold text-gray-800">{% block page_title %}Tableau de Bord{% endblock %}</h1>
+
+                <!-- Actions et profil utilisateur -->
+                <div class="flex items-center gap-3">
+                    
+                    <!-- Menu utilisateur desktop -->
+                    <div class="hidden sm:flex items-center header-user-menu">
+                        <button id="headerUserBtn" class="header-user-btn focus:outline-none">
+                            {% if user.profile_picture and not request.GET.remove_profile_picture %}
+                                <img src="{{ user.profile_picture.url }}" alt="Photo de profil" 
+                                    class="w-8 h-8 rounded-full border-2 border-purple-500 object-cover">
+                            {% else %}
+                                <img src="{% static 'images/avatar.jpg' %}" alt="Photo de profil par défaut" 
+                                    class="w-8 h-8 rounded-full border-2 border-purple-500 object-cover">
+                            {% endif %}
+                            <span>{{ user.username }}</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M6 9l6 6 6-6"></path>
+                            </svg>
+                        </button>
+
+                        <!-- Dropdown menu corrigé -->
+                        <div id="headerDropdownMenu" class="header-dropdown-menu">
+                            <div class="header-dropdown-header">
+                                <div class="header-dropdown-user-info">
+                                    <div class="header-dropdown-avatar">
+                                        {% if user.profile_picture and not request.GET.remove_profile_picture %}
+                                            <img src="{{ user.profile_picture.url }}" alt="Photo de profil">
+                                        {% else %}
+                                            <img src="{% static 'images/avatar.jpg' %}" alt="Photo de profil par défaut">
+                                        {% endif %}
+                                    </div>
+                                    <div class="header-dropdown-user-details">
+                                        <h3>{{ user.username }}</h3>
+                                        <p>{{ user.email|default:"Utilisateur" }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {% if user.is_superuser %}
+                            <div class="header-dropdown-divider"></div>
+                            {% endif %}
+                            
+                            <div class="header-dropdown-body">
+
+                                {% if user.is_superuser %}
+                                <a href="{% url 'profile' %}" class="header-dropdown-item">
+                                    <i class="fas fa-user-circle"></i>
+                                    <span>Mon Profil</span>
+                                </a>
+                                
+                                <a href="{% url 'user_password_change' %}" class="header-dropdown-item">
+                                    <i class="fas fa-key"></i>
+                                    <span>Changer le mot de passe</span>
+                                </a>
+                                
+                                <a href="{% url 'user_list' %}" class="header-dropdown-item">
+                                    <i class="fas fa-users-cog"></i>
+                                    <span>Gestion utilisateurs</span>
+                                </a>
+                                
+                                <div class="header-dropdown-divider"></div>
+                                {% endif %}
+                                
+                                <button onclick="document.getElementById('logout-form').submit();"
+                                        class="header-dropdown-item logout w-full text-left">
+                                    <i class="fas fa-sign-out-alt"></i>
+                                    <span>Déconnexion</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Contenu -->
+            <main class="flex-1 p-5 bg-gray-50 overflow-y-auto">
+                {% block content %}
+                <!-- Contenu par défaut ou contenu des pages enfants -->
+                <div class="animate-fadeInScale">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        <!-- Cards de démonstration -->
+                        <div class="bg-white rounded-xl p-5 shadow-sm border hover:shadow-md transition-shadow">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                                    <i class="fas fa-users text-purple-600"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-gray-800 text-sm">Total Bénéficiaires</h3>
+                                    <p class="text-xl font-bold text-purple-600">1,234</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-xl p-5 shadow-sm border hover:shadow-md transition-shadow">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                                    <i class="fas fa-building text-blue-600"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-gray-800 text-sm">Centres Actifs</h3>
+                                    <p class="text-xl font-bold text-blue-600">45</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-xl p-5 shadow-sm border hover:shadow-md transition-shadow">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                                    <i class="fas fa-project-diagram text-green-600"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold text-gray-800 text-sm">Programmes</h3>
+                                    <p class="text-xl font-bold text-green-600">28</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endblock %}
+            </main>
+
+            <!-- Footer -->
+            <footer class="bg-white text-center text-xs text-gray-600 py-3 border-t">
+                Entraide Nationale © 2025
+            </footer>
+        </div>
+    </div>
+
+    <!-- Scripts externes -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-piechart-outlabels@latest/dist/chartjs-plugin-piechart-outlabels.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script>
+        // Toggle sidebar mobile
+        const sidebar = document.getElementById("sidebar");
+        const menuBtn = document.getElementById("menuBtn");
+        const overlay = document.getElementById("overlay");
+
+        menuBtn?.addEventListener("click", () => {
+            sidebar.classList.toggle("open");
+            overlay.classList.toggle("hidden");
+        });
+
+        overlay?.addEventListener("click", () => {
+            sidebar.classList.remove("open");
+            overlay.classList.add("hidden");
+        });
+
+        // Header dropdown menu functionality
+        const headerUserBtn = document.getElementById("headerUserBtn");
+        const headerDropdownMenu = document.getElementById("headerDropdownMenu");
+
+        headerUserBtn?.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            headerDropdownMenu.classList.toggle("show");
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener("click", (e) => {
+            if (!headerUserBtn?.contains(e.target) && !headerDropdownMenu?.contains(e.target)) {
+                headerDropdownMenu?.classList.remove("show");
+            }
+        });
+
+        // Close dropdown when pressing escape
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                headerDropdownMenu?.classList.remove("show");
+            }
+        });
+
+        // Toggle submenu base de données
+        const databaseBtn = document.getElementById("databaseBtn");
+        const databaseSubmenu = document.getElementById("databaseSubmenu");
+        const databaseArrow = document.getElementById("databaseArrow");
+
+        databaseBtn?.addEventListener("click", () => {
+            databaseSubmenu.classList.toggle("hidden");
+            databaseArrow.classList.toggle("rotate-180");
+            
+            // Animation d'apparition des éléments
+            if (!databaseSubmenu.classList.contains("hidden")) {
+                const items = databaseSubmenu.querySelectorAll(".submenu-item");
+                items.forEach((item, index) => {
+                    item.style.opacity = "0";
+                    item.style.transform = "translateX(-20px)";
+                    setTimeout(() => {
+                        item.style.transition = "all 0.3s ease";
+                        item.style.opacity = "1";
+                        item.style.transform = "translateX(0)";
+                    }, index * 100);
+                });
+            }
+        });
+
+        // Toggle submenu paramètres
+        const settingsBtn = document.getElementById("settingsBtn");
+        const settingsSubmenu = document.getElementById("settingsSubmenu");
+        const settingsArrow = document.getElementById("settingsArrow");
+
+        settingsBtn?.addEventListener("click", () => {
+            settingsSubmenu.classList.toggle("hidden");
+            settingsArrow.classList.toggle("rotate-180");
+            
+            // Animation d'apparition des éléments
+            if (!settingsSubmenu.classList.contains("hidden")) {
+                const items = settingsSubmenu.querySelectorAll(".submenu-item");
+                items.forEach((item, index) => {
+                    item.style.opacity = "0";
+                    item.style.transform = "translateX(-20px)";
+                    setTimeout(() => {
+                        item.style.transition = "all 0.3s ease";
+                        item.style.opacity = "1";
+                        item.style.transform = "translateX(0)";
+                    }, index * 100);
+                });
+            }
+        });
+
+        // Animation au chargement de la page
+        document.addEventListener("DOMContentLoaded", () => {
+            const sidebarItems = document.querySelectorAll(".sidebar-item");
+            sidebarItems.forEach((item, index) => {
+                item.style.opacity = "0";
+                item.style.transform = "translateX(-20px)";
+                setTimeout(() => {
+                    item.style.transition = "all 0.5s ease";
+                    item.style.opacity = "1";
+                    item.style.transform = "translateX(0)";
+                }, index * 100);
+            });
+        });
+
+        // Fermeture automatique des sous-menus sur mobile
+        if (window.innerWidth < 768) {
+            document.querySelectorAll('.submenu-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    sidebar.classList.remove("open");
+                    overlay.classList.add("hidden");
+                });
+            });
+        }
+
+        // Animation des dropdown items lors de l'ouverture du menu
+        headerUserBtn?.addEventListener("click", () => {
+            if (headerDropdownMenu.classList.contains("show")) {
+                const dropdownItems = headerDropdownMenu.querySelectorAll('.header-dropdown-item');
+                dropdownItems.forEach((item, index) => {
+                    item.style.opacity = "0";
+                    item.style.transform = "translateY(-10px)";
+                    setTimeout(() => {
+                        item.style.transition = "all 0.3s ease";
+                        item.style.opacity = "1";
+                        item.style.transform = "translateY(0)";
+                    }, index * 50);
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>

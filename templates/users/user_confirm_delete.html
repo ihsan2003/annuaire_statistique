@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-md mx-auto mt-20 p-8 bg-white rounded-xl shadow-md text-center">
+  <h2 class="text-2xl font-semibold mb-4 text-gray-800">Supprimer l'utilisateur</h2>
+  <p class="mb-8 text-gray-700">
+    Êtes-vous sûr de vouloir supprimer l'utilisateur 
+    <strong class="font-bold text-red-600">{{ user.username }}</strong> ? 
+    Cette action est irréversible.
+  </p>
+
+  <form method="post" class="flex justify-center gap-4">
+    {% csrf_token %}
+    <button type="submit" 
+            class="px-6 py-2 bg-red-600 text-white rounded-lg shadow hover:bg-red-700 transition">
+      Oui, supprimer
+    </button>
+    <a href="{% url 'user_list' %}" 
+       class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg shadow hover:bg-gray-400 transition flex items-center justify-center">
+      Annuler
+    </a>
+  </form>
+</div>
+{% endblock %}
