@@ -184,19 +184,19 @@
     <div class="chart-container bg-white rounded shadow min-h-[700px] w-full">
         <div class="map-card">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
-            <h2>Carte Géographique</h2>
-            <div>
-                <button id="resetMap" class="reset-btn">Réinitialiser la carte</button>
-            </div>
+                <h1 class="chart-title">Carte Géographique</h1>
+                <select id="programmeFilter" class="form-select" style="min-width:200px;">
+                    <option value="">Tous les programmes</option>
+                </select>
             </div>
 
             <div id="map"
                 data-regions-url="{% url 'api_regions' %}"
                 data-delegations-url="{% url 'api_delegations' %}"
                 data-centres-url="{% url 'api_centres' %}"
+                data-programmes-url="{% url 'api_programmes' %}"
             ></div>
         </div>
-
     </div>
 
 </section>
@@ -212,7 +212,7 @@
 <script src="{% static 'js/export.js' %}" ></script>
 
 <script>
-document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("DOMContentLoaded", () => {
     const map = L.map("map").setView([31.7917, -7.0926], 6);
 
     // Couche de fond
@@ -229,19 +229,83 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     legend.addTo(map);
 
+    // Bouton de réinitialisation comme contrôle Leaflet
+    const resetControl = L.control({ position: "topleft" });
+    resetControl.onAdd = function () {
+        const btn = L.DomUtil.create("button", "leaflet-bar leaflet-control reset-map-btn");
+        btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i>';
+        btn.title = "Réinitialiser la carte";
+        btn.style.backgroundColor = "white";
+        btn.style.padding = "8px";
+        btn.style.cursor = "pointer";
+        btn.style.border = "2px solid rgba(0,0,0,0.2)";
+        btn.style.borderRadius = "4px";
+        btn.style.fontWeight = "bold";
+        btn.style.fontSize = "16px";
+        
+        btn.onclick = function (e) {
+            L.DomEvent.stopPropagation(e);
+            L.DomEvent.preventDefault(e);
+            resetMap();
+        };
+        
+        btn.onmouseover = function() {
+            btn.style.backgroundColor = "#f4f4f4";
+        };
+        btn.onmouseout = function() {
+            btn.style.backgroundColor = "white";
+        };
+        
+        return btn;
+    };
+    resetControl.addTo(map);
+
     // Couches Leaflet
     let regionsLayer = null;
     let delegationsLayer = null;
+    let centresLayer = null;
 
-    // Palette de couleurs
+    // Palette de couleurs pour les régions
     const colors = [
         "#A554B7", "#4A90E2", "#50E3C2", "#F5A623",
-        "#7ED321", "#D0021B", "#9013FE", "#F8E71C"
+        "#7ED321", "#D0021B", "#9013FE", "#F8E71C",
+        "#FF6B9D", "#00D9FF", "#BD10E0", "#8B572A"
     ];
 
     // Variables pour garder trace du style original
     let selectedRegionLayer = null;
     let selectedDelegationLayer = null;
+    let regionColorMap = new Map();
+    let currentDelegation = null;
+    let selectedProgramme = "";
+
+    // Charger les programmes dans le select
+    async function loadProgrammes() {
+        try {
+            const response = await fetch("/api/programmes/");
+            if (!response.ok) throw new Error("Erreur chargement programmes");
+            const programmes = await response.json();
+
+            const select = document.getElementById("programmeFilter");
+            programmes.forEach(prog => {
+                if (prog) {
+                    const option = document.createElement("option");
+                    option.value = prog;
+                    option.textContent = prog;
+                    select.appendChild(option);
+                }
+            });
+
+            select.addEventListener("change", (e) => {
+                selectedProgramme = e.target.value;
+                if (currentDelegation) {
+                    loadCentres(currentDelegation);
+                }
+            });
+        } catch (err) {
+            console.error("Erreur chargement programmes:", err);
+        }
+    }
 
     // Charger les régions
     async function loadRegions() {
@@ -252,9 +316,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (regionsLayer) map.removeLayer(regionsLayer);
 
+            data.features.forEach((feature, index) => {
+                const regionName = feature.properties.region;
+                regionColorMap.set(regionName, colors[index % colors.length]);
+            });
+
             regionsLayer = L.geoJSON(data, {
                 style: (feature) => {
-                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    const regionName = feature.properties.region;
+                    const color = regionColorMap.get(regionName);
                     return {
                         color: "#555",
                         weight: 1,
@@ -266,29 +336,30 @@ document.addEventListener("DOMContentLoaded", () => {
                     const regionName = feature.properties.region;
                     layer.bindTooltip(regionName);
                     
-                    // Stocker le style original
-                    const originalStyle = {
-                        color: layer.options.color,
-                        weight: layer.options.weight,
-                        fillColor: layer.options.fillColor,
-                        fillOpacity: layer.options.fillOpacity
+                    layer.originalStyle = {
+                        color: "#555",
+                        weight: 1,
+                        fillColor: regionColorMap.get(regionName),
+                        fillOpacity: 0.6
                     };
                     
                     layer.on("click", (e) => {
-                        // Empêcher le comportement par défaut
                         L.DomEvent.stopPropagation(e);
                         
-                        // Réinitialiser le style de la région précédemment sélectionnée
-                        if (selectedRegionLayer && selectedRegionLayer !== layer) {
-                            selectedRegionLayer.setStyle(selectedRegionLayer.originalStyle);
-                        }
-                        
-                        // Sauvegarder le style original
-                        layer.originalStyle = originalStyle;
                         selectedRegionLayer = layer;
                         
-                        // Appliquer le même style (pas de changement visuel)
-                        layer.setStyle(originalStyle);
+                        regionsLayer.eachLayer(otherLayer => {
+                            if (otherLayer !== layer) {
+                                otherLayer.setStyle({
+                                    fillColor: "#555",
+                                    fillOpacity: 0.3,
+                                    color: "#333",
+                                    weight: 1
+                                });
+                            } else {
+                                otherLayer.setStyle(otherLayer.originalStyle);
+                            }
+                        });
                         
                         map.fitBounds(layer.getBounds());
                         loadDelegations(regionName);
@@ -296,10 +367,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }).addTo(map);
 
-            // Mise à jour légende
             const div = legend.getContainer();
             div.innerHTML = "<strong>Régions :</strong><br>" +
-                data.features.map(f => f.properties.nom).join("<br>");
+                data.features.map(f => f.properties.region).join("<br>");
         } catch (err) {
             console.error("Erreur:", err);
         }
@@ -328,7 +398,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     const delName = feature.properties.delegation;
                     layer.bindTooltip(delName);
                     
-                    // Stocker le style original
                     const originalStyle = {
                         color: layer.options.color,
                         weight: layer.options.weight,
@@ -337,19 +406,15 @@ document.addEventListener("DOMContentLoaded", () => {
                     };
                     
                     layer.on("click", (e) => {
-                        // Empêcher le comportement par défaut
                         L.DomEvent.stopPropagation(e);
                         
-                        // Réinitialiser le style de la délégation précédemment sélectionnée
                         if (selectedDelegationLayer && selectedDelegationLayer !== layer) {
                             selectedDelegationLayer.setStyle(selectedDelegationLayer.originalStyle);
                         }
                         
-                        // Sauvegarder le style original
                         layer.originalStyle = originalStyle;
                         selectedDelegationLayer = layer;
                         
-                        // Appliquer le même style (pas de changement visuel)
                         layer.setStyle(originalStyle);
                         
                         loadCentres(delName);
@@ -358,26 +423,32 @@ document.addEventListener("DOMContentLoaded", () => {
             }).addTo(map);
 
             const div = legend.getContainer();
-            div.innerHTML = `<strong>Délégations de ${regionName} :</strong><br>` +
-                data.features.map(f => f.properties.nom).join("<br>");
+            div.innerHTML = `<strong>Délégations de ${regionName} :</strong><br>` + 
+                data.features.map(f => f.properties.delegation).join("<br>");
 
         } catch (err) {
             console.error("Erreur:", err);
         }
     }
 
-    let centresLayer = null;
-
+    // Charger les centres avec filtre programme
     async function loadCentres(delegationName) {
+        currentDelegation = delegationName;
+        
         try {
-            const response = await fetch(`/api/centres/?delegation=${encodeURIComponent(delegationName)}`);
+            let url = `/api/centres/?delegation=${encodeURIComponent(delegationName)}`;
+            
+            if (selectedProgramme) {
+                url += `&programme=${encodeURIComponent(selectedProgramme)}`;
+            }
+            
+            const response = await fetch(url);
             if (!response.ok) throw new Error("Erreur chargement centres");
             const data = await response.json();
 
-            // Supprimer l'ancienne couche centres
             if (centresLayer) map.removeLayer(centresLayer);
 
-            centresLayer = L.layerGroup(); // groupe de markers
+            centresLayer = L.layerGroup();
 
             data.forEach(c => {
                 const marker = L.circleMarker([c.latitude, c.longitude], {
@@ -399,36 +470,53 @@ document.addEventListener("DOMContentLoaded", () => {
 
             centresLayer.addTo(map);
 
-            // Mise à jour légende
             const div = legend.getContainer();
-            div.innerHTML = `<strong>Centres de ${delegationName} :</strong><br>` +
+            let legendHTML = `<strong>Centres de ${delegationName}</strong>`;
+            if (selectedProgramme) {
+                legendHTML += `<br><em>Programme: ${selectedProgramme}</em>`;
+            }
+            legendHTML += `<br><small>(${data.length} centre(s))</small><br>` +
                 data.map(c => c.nom).join("<br>");
+            div.innerHTML = legendHTML;
 
         } catch (err) {
             console.error(err);
         }
     }
 
-    // Bouton pour réinitialiser la carte
-    document.getElementById("resetMap").addEventListener("click", () => {
-        // Supprimer les couches
+    // Fonction de réinitialisation
+    function resetMap() {
         if (delegationsLayer) map.removeLayer(delegationsLayer);
         if (centresLayer) map.removeLayer(centresLayer);
         
-        // Réinitialiser les sélections
         selectedRegionLayer = null;
         selectedDelegationLayer = null;
+        currentDelegation = null;
+        selectedProgramme = "";
         
-        // Recharger les régions
+        const selectElement = document.getElementById("programmeFilter");
+        if (selectElement) {
+            selectElement.value = "";
+        }
+        
+        if (regionsLayer) {
+            regionsLayer.eachLayer(layer => {
+                if (layer.originalStyle) {
+                    layer.setStyle(layer.originalStyle);
+                }
+            });
+        }
+        
         map.setView([31.7917, -7.0926], 6);
-        loadRegions();
-    });
+        
+        const div = legend.getContainer();
+        div.innerHTML = "<strong>Légende :</strong><br><span>Aucune région sélectionnée</span>";
+    }
 
     loadRegions();
+    loadProgrammes();
 });
 </script>
-
-
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {

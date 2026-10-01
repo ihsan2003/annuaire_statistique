@@ -49,20 +49,26 @@ INSTALLED_APPS = [
     'widget_tweaks',
     "tailwind",
     'theme',
-    'django_browser_reload'
+    'django_browser_reload',
+    'debug_toolbar'
 ]
 
 TAILWIND_APP_NAME = 'theme'
 NPM_BIN_PATH = "C:/Program Files/nodejs/npm.cmd"
 
 CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'dashboard-cache',
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "TIMEOUT": 600,
     }
 }
 
 MIDDLEWARE = [
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -73,6 +79,8 @@ MIDDLEWARE = [
     'account.middleware.session_timeout.SessionIdleTimeout',
 
 ]
+
+INTERNAL_IPS = ['127.0.0.1']
 
 ROOT_URLCONF = 'annuaire_statistique.urls'
 

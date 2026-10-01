@@ -17,7 +17,171 @@
     {{ form.media }}
 
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <style>
+        /* Bouton Scroll en Haut */
+        #scrollToTop {
+            position: fixed;
+            bottom: 90px; /* Au-dessus du bouton export */
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            margin-right: 10px;
+            background: #a554b7;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
+        #scrollToTop.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        #scrollToTop:hover {
+            background: #8e45a0;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+            transform: translateY(-3px);
+        }
+
+        #scrollToTop:active {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Bouton Export */
+        #export-all-charts-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            margin-right: 10px;
+            background: #a554b7;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #export-all-charts-btn:hover {
+            background: #8e45a0;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+            transform: translateY(-3px);
+        }
+
+        #export-all-charts-btn:active {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Animations des icônes */
+        #scrollToTop i {
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { 
+                transform: translateY(0); 
+            }
+            40% { 
+                transform: translateY(-5px); 
+            }
+            60% { 
+                transform: translateY(-3px); 
+            }
+        }
+
+        #export-all-charts-btn svg {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { 
+                transform: scale(1); 
+            }
+            50% { 
+                transform: scale(1.1); 
+            }
+        }
+
+        /* Animation d'apparition */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        #export-all-charts-btn {
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        /* Responsive - Mobile */
+        @media (max-width: 768px) {
+            #scrollToTop {
+                width: 45px;
+                height: 45px;
+                bottom: 85px;
+                right: 20px;
+                font-size: 18px;
+            }
+            
+            #export-all-charts-btn {
+                width: 45px;
+                height: 45px;
+                bottom: 25px;
+                right: 20px;
+                font-size: 18px;
+            }
+            
+            #export-all-charts-btn svg {
+                width: 20px;
+                height: 20px;
+            }
+        }
+
+        /* États de focus pour l'accessibilité */
+        #scrollToTop:focus,
+        #export-all-charts-btn:focus {
+            outline: 2px solid white;
+            outline-offset: 2px;
+        }
+
+        /* Effet de ripple au clic */
+        @keyframes ripple {
+            0% {
+                transform: scale(0);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+    </style>
 
 </head>
 
@@ -273,6 +437,119 @@
                 </div>
             </header>
 
+            <!-- Breadcrumbs -->
+            <div class="bg-gray-50 border-b border-gray-200">
+                <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-3">
+                    <nav class="flex items-center space-x-2 text-sm overflow-x-auto scrollbar-hide">
+                        <!-- Accueil (toujours présent) -->
+                        <a href="{% url 'home' %}" class="breadcrumb-item flex items-center text-gray-500 hover:text-purple-700 transition-colors">
+                            <i class="fas fa-home mr-1"></i>
+                            <span>Accueil</span>
+                        </a>
+
+                        {% if request.resolver_match.url_name != 'home' and request.resolver_match.url_name not in 'admin_dashboard,user_dashboard' %}
+                        <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
+
+                        <!-- Bénéficiaires -->
+                        {% if request.resolver_match.url_name == 'beneficiaires' %}
+                            <span class="breadcrumb-item flex items-center text-purple-700 font-semibold">
+                                <i class="fas fa-users mr-1"></i>
+                                <span>Bénéficiaires</span>
+                            </span>
+
+                        <!-- Centres -->
+                        {% elif request.resolver_match.url_name == 'centres' %}
+                            <span class="breadcrumb-item flex items-center text-purple-700 font-semibold">
+                                <i class="fas fa-building mr-1"></i>
+                                <span>Centres</span>
+                            </span>
+
+                        <!-- Axes et Programmes -->
+                        {% elif request.resolver_match.url_name == 'axe&programme' %}
+                            <span class="breadcrumb-item flex items-center text-purple-700 font-semibold">
+                                <i class="fas fa-project-diagram mr-1"></i>
+                                <span>Axes & Programmes</span>
+                            </span>
+
+                        <!-- Personnel -->
+                        {% elif request.resolver_match.url_name == 'personnel' %}
+                            <span class="breadcrumb-item flex items-center text-purple-700 font-semibold">
+                                <i class="fas fa-user-tie mr-1"></i>
+                                <span>Personnel</span>
+                            </span>
+
+                        <!-- Base de données - Tables -->
+                        {% elif request.resolver_match.url_name == 'get_tables' %}
+                            <a href="#" class="breadcrumb-item flex items-center text-gray-500 hover:text-purple-700 transition-colors">
+                                <i class="fas fa-database mr-1"></i>
+                                <span>Base de données</span>
+                            </a>
+                            <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
+                            <span class="breadcrumb-item flex items-center text-purple-700 font-semibold">
+                                <i class="fas fa-table mr-1"></i>
+                                <span>Tables</span>
+                            </span>
+
+                        <!-- Base de données - Ajouter Annuaire -->
+                        {% elif request.resolver_match.url_name == 'add_annuaire' %}
+                            <a href="#" class="breadcrumb-item flex items-center text-gray-500 hover:text-purple-700 transition-colors">
+                                <i class="fas fa-database mr-1"></i>
+                                <span>Base de données</span>
+                            </a>
+                            <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
+                            <span class="breadcrumb-item flex items-center text-purple-700 font-semibold">
+                                <i class="fas fa-plus-circle mr-1"></i>
+                                <span>Ajouter un Annuaire</span>
+                            </span>
+
+                        <!-- Paramètres - Profil -->
+                        {% elif request.resolver_match.url_name == 'profile' %}
+                            <a href="#" class="breadcrumb-item flex items-center text-gray-500 hover:text-purple-700 transition-colors">
+                                <i class="fas fa-cog mr-1"></i>
+                                <span>Paramètres</span>
+                            </a>
+                            <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
+                            <span class="breadcrumb-item flex items-center text-purple-700 font-semibold">
+                                <i class="fas fa-id-badge mr-1"></i>
+                                <span>Mon Profil</span>
+                            </span>
+
+                        <!-- Paramètres - Utilisateurs -->
+                        {% elif request.resolver_match.url_name == 'user_list' %}
+                            <a href="#" class="breadcrumb-item flex items-center text-gray-500 hover:text-purple-700 transition-colors">
+                                <i class="fas fa-cog mr-1"></i>
+                                <span>Paramètres</span>
+                            </a>
+                            <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
+                            <span class="breadcrumb-item flex items-center text-purple-700 font-semibold">
+                                <i class="fas fa-users-cog mr-1"></i>
+                                <span>Gestion Utilisateurs</span>
+                            </span>
+
+                        <!-- Paramètres - Mot de passe -->
+                        {% elif request.resolver_match.url_name == 'user_password_change' %}
+                            <a href="#" class="breadcrumb-item flex items-center text-gray-500 hover:text-purple-700 transition-colors">
+                                <i class="fas fa-cog mr-1"></i>
+                                <span>Paramètres</span>
+                            </a>
+                            <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
+                            <span class="breadcrumb-item flex items-center text-purple-700 font-semibold">
+                                <i class="fas fa-key mr-1"></i>
+                                <span>Changer le mot de passe</span>
+                            </span>
+
+                        {% else %}
+                            <!-- Page par défaut -->
+                            <span class="breadcrumb-item flex items-center text-purple-700 font-semibold">
+                                <i class="fas fa-file mr-1"></i>
+                                <span>{{ request.resolver_match.url_name|title }}</span>
+                            </span>
+                        {% endif %}
+                        {% endif %}
+                    </nav>
+                </div>
+            </div>
+
             <!-- Contenu -->
             <main class="flex-1 p-5 bg-gray-50 overflow-y-auto">
                 {% block content %}
@@ -317,6 +594,7 @@
                         </div>
                     </div>
                 </div>
+                
                 {% endblock %}
             </main>
 
@@ -326,6 +604,11 @@
             </footer>
         </div>
     </div>
+
+    <!-- Bouton Scroll en Haut -->
+    <button id="scrollToTop" aria-label="Retour en haut">
+        <i class="fas fa-arrow-up"></i>
+    </button>
 
     <!-- Scripts externes -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
@@ -461,7 +744,30 @@
                 });
             }
         });
+
+        // Bouton Scroll en Haut
+        const scrollToTopBtn = document.getElementById('scrollToTop');
+        const mainContent = document.querySelector('main');
+
+        // Écouter le scroll sur l'élément main au lieu de window
+        mainContent?.addEventListener('scroll', () => {
+            if (mainContent.scrollTop > 300) {
+                scrollToTopBtn.classList.add('show');
+            } else {
+                scrollToTopBtn.classList.remove('show');
+            }
+        });
+
+        // Scroller vers le haut du main au lieu de window
+        scrollToTopBtn?.addEventListener('click', () => {
+            mainContent?.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
     </script>
+
+    
 </body>
 
 </html>

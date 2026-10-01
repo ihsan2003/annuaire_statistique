@@ -17,7 +17,7 @@ const PDF_CONFIG = {
         light: [236, 240, 241],
         white: [255, 255, 255]
     },
-    
+    logoPath: '/static/images/logo.png'
 };
 
 // Vérification de l'espace disponible
@@ -39,7 +39,7 @@ function ensurePageSpace(pdf, currentY, requiredHeight, pageNumber, totalPages) 
         addFooter(pdf, pageNumber, totalPages);
         pdf.addPage();
         pageNumber++;
-        currentY = addHeader(pdf, 'SUITE...', pageNumber);
+        currentY = addHeader(pdf, 'SUITE...', pageNumber, false);
         currentY += 10;
     }
     return { currentY, pageNumber };
@@ -126,7 +126,7 @@ function calculatePercentage(value, total) {
     return formatted.replace('.', ',');
 }
 
-// Ajouter un en-tête de page
+// Ajouter un en-tête de page (MODIFIÉ)
 function addHeader(pdf, title, pageNumber = null) {
     const pageWidth = pdf.internal.pageSize.getWidth();
     
@@ -137,15 +137,6 @@ function addHeader(pdf, title, pageNumber = null) {
     pdf.setTextColor(...PDF_CONFIG.colors.primary);
     pdf.setFont('helvetica', 'bold');
     pdf.text(title, PDF_CONFIG.margins.left, PDF_CONFIG.margins.top);
-    
-    if (pageNumber !== null) {
-        pdf.setFontSize(10);
-        pdf.setTextColor(...PDF_CONFIG.colors.secondary);
-        pdf.setFont('helvetica', 'normal');
-        const pageText = `Page ${pageNumber}`;
-        const textWidth = pdf.getTextWidth(pageText);
-        pdf.text(pageText, pageWidth - PDF_CONFIG.margins.right - textWidth, PDF_CONFIG.margins.top);
-    }
     
     pdf.setFontSize(9);
     pdf.setTextColor(...PDF_CONFIG.colors.text);
@@ -203,6 +194,23 @@ function addSectionTitle(pdf, title, yPosition) {
     return yPosition + 10;
 }
 
+// Fonction pour charger le logo en base64
+async function loadLogoAsBase64(logoPath) {
+    try {
+        const response = await fetch(logoPath);
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (error) {
+        console.error('Erreur lors du chargement du logo:', error);
+        return null;
+    }
+}
+
 // Fonction principale pour les tableaux longs avec pagination
 function addDataTable(pdf, headers, data, yPosition, options = {}) {
     const pageWidth = pdf.internal.pageSize.getWidth();
@@ -249,7 +257,7 @@ function addDataTable(pdf, headers, data, yPosition, options = {}) {
             addFooter(pdf, pageNumber, totalPages);
             pdf.addPage();
             pageNumber++;
-            currentY = addHeader(pdf, 'SUITE DU TABLEAU...', pageNumber);
+            currentY = addHeader(pdf, 'SUITE DU TABLEAU...', pageNumber, false);
             currentY += 5;
         }
         
@@ -564,7 +572,7 @@ function addChartStats(pdf, stats, yPosition, pageInfo = { pageNumber: 1, totalP
     return { currentY, pageNumber };
 }
 
-// Optimiser l'image du graphique (VERSION OPTIMISÉE)
+// Optimiser l'image du graphique
 function optimizeChartImage(canvas, maxWidth = 700, quality = 0.85) {
     try {
         const tempCanvas = document.createElement('canvas');
@@ -588,7 +596,7 @@ function optimizeChartImage(canvas, maxWidth = 700, quality = 0.85) {
     }
 }
 
-// Exporter un graphique individuel (VERSION OPTIMISÉE)
+// Exporter un graphique individuel
 async function exportChartToPDF(canvasId, title, chartType) {
     try {
         const canvas = document.getElementById(canvasId);
@@ -618,7 +626,7 @@ async function exportChartToPDF(canvasId, title, chartType) {
         let currentPage = 1;
         let estimatedTotalPages = 5;
         
-        let currentY = addHeader(pdf, title, currentPage);
+        let currentY = addHeader(pdf, title, currentPage, false);
         currentY += 10;
         
         const chartImage = optimizeChartImage(canvas);
@@ -628,7 +636,6 @@ async function exportChartToPDF(canvasId, title, chartType) {
         const aspectRatio = canvas.height / canvas.width;
         let chartHeight = chartWidth * aspectRatio;
         
-        // Limiter la hauteur maximale du graphique
         const maxChartHeight = 90;
         if (chartHeight > maxChartHeight) {
             chartHeight = maxChartHeight;
@@ -676,7 +683,7 @@ async function exportChartToPDF(canvasId, title, chartType) {
     }
 }
 
-// Fonction principale d'exportation globale
+// Fonction principale d'exportation globale (MODIFIÉE)
 async function exportAllChartsToPDF() {
     try {
         if (!window.jspdf) {
@@ -733,9 +740,21 @@ async function exportAllChartsToPDF() {
         let estimatedTotalPages = availableCharts.length + 3;
         let currentPage = 1;
         
-        // Page de couverture
-        let currentY = addHeader(pdf, 'RAPPORT STATISTIQUE COMPLET', currentPage);
-        currentY += 20;
+        // PAGE DE COUVERTURE AVEC LOGO (MODIFIÉE)
+        let currentY = addHeader(pdf, 'RAPPORT STATISTIQUE COMPLET', currentPage, true); // Afficher date/heure
+        currentY += 10;
+        
+        // Charger et ajouter le logo au centre
+        const logoBase64 = await loadLogoAsBase64(PDF_CONFIG.logoPath);
+        if (logoBase64) {
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const logoWidth = 100; // Largeur du logo en mm
+            const logoHeight = 15; // Hauteur du logo en mm
+            const logoX = (pageWidth - logoWidth) / 2; // Centrer horizontalement
+            
+            pdf.addImage(logoBase64, 'PNG', logoX, currentY, logoWidth, logoHeight);
+            currentY += logoHeight + 50;
+        }
         
         pdf.setFontSize(24);
         pdf.setTextColor(...PDF_CONFIG.colors.primary);
@@ -745,7 +764,7 @@ async function exportAllChartsToPDF() {
         
         pdf.setFontSize(20);
         pdf.text('BÉNÉFICIAIRES & CENTRES', PDF_CONFIG.margins.left, currentY);
-        currentY += 30;
+        currentY += 14;
         
         pdf.setFontSize(16);
         pdf.setTextColor(...PDF_CONFIG.colors.secondary);
@@ -757,7 +776,6 @@ async function exportAllChartsToPDF() {
             `Graphiques des bénéficiaires: ${chartsByCategory.bénéficiaires?.length || 0}`,
             `Graphiques des centres: ${chartsByCategory.centres?.length || 0}`,
             `Total des graphiques: ${availableCharts.length}`,
-            `Date de génération: ${new Date().toLocaleDateString('fr-FR')}`,
             `Pages estimées: ${estimatedTotalPages}+`
         ];
         
@@ -765,10 +783,10 @@ async function exportAllChartsToPDF() {
         const boxWidth = pageWidth - (PDF_CONFIG.margins.left + PDF_CONFIG.margins.right);
         
         pdf.setFillColor(...PDF_CONFIG.colors.light);
-        pdf.rect(PDF_CONFIG.margins.left, currentY, boxWidth, 50, 'F');
+        pdf.rect(PDF_CONFIG.margins.left, currentY, boxWidth, 40, 'F');
         pdf.setDrawColor(...PDF_CONFIG.colors.primary);
         pdf.setLineWidth(1);
-        pdf.rect(PDF_CONFIG.margins.left, currentY, boxWidth, 50, 'S');
+        pdf.rect(PDF_CONFIG.margins.left, currentY, boxWidth, 40, 'S');
         
         pdf.setFontSize(10);
         pdf.setTextColor(...PDF_CONFIG.colors.text);
@@ -782,7 +800,7 @@ async function exportAllChartsToPDF() {
         // Page sommaire
         pdf.addPage();
         currentPage++;
-        currentY = addHeader(pdf, 'TABLE DES MATIÈRES', currentPage);
+        currentY = addHeader(pdf, 'TABLE DES MATIÈRES', currentPage, false);
         currentY += 10;
         
         pdf.setFontSize(12);
@@ -839,7 +857,7 @@ async function exportAllChartsToPDF() {
         // Page statistiques globales
         pdf.addPage();
         currentPage++;
-        currentY = addHeader(pdf, 'STATISTIQUES GLOBALES', currentPage);
+        currentY = addHeader(pdf, 'STATISTIQUES GLOBALES', currentPage, false);
         currentY += 10;
         
         Object.entries(chartsByCategory).forEach(([category, charts]) => {
@@ -868,13 +886,13 @@ async function exportAllChartsToPDF() {
         
         addFooter(pdf, currentPage, estimatedTotalPages);
         
-        // Pages des graphiques (VERSION OPTIMISÉE)
+        // Pages des graphiques
         for (let i = 0; i < availableCharts.length; i++) {
             const chartInfo = availableCharts[i];
             
             pdf.addPage();
             currentPage++;
-            currentY = addHeader(pdf, `${chartInfo.title} (${chartInfo.category})`, currentPage);
+            currentY = addHeader(pdf, `${chartInfo.title} (${chartInfo.category})`, currentPage, false);
             currentY += 10;
             
             const chartImage = optimizeChartImage(chartInfo.canvas);
@@ -883,7 +901,6 @@ async function exportAllChartsToPDF() {
             const aspectRatio = chartInfo.canvas.height / chartInfo.canvas.width;
             let chartHeight = chartWidth * aspectRatio;
             
-            // Limiter la hauteur maximale du graphique
             const maxChartHeight = 80;
             if (chartHeight > maxChartHeight) {
                 chartHeight = maxChartHeight;
@@ -985,7 +1002,7 @@ function showErrorMessage(message) {
     }, 7000);
 }
 
-// Créer le bouton d'exportation (VERSION OPTIMISÉE)
+// Créer le bouton d'exportation avec icône PDF
 function createExportButton() {
     const existingButton = document.getElementById('export-all-charts-btn');
     if (existingButton) {
@@ -994,38 +1011,15 @@ function createExportButton() {
     
     const exportButton = document.createElement('button');
     exportButton.id = 'export-all-charts-btn';
-    exportButton.className = 'export-btn';
     exportButton.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M12,19L8,15H10.5V12H13.5V15H16L12,19Z"/>
         </svg>
-        Exporter le Rapport Complet
     `;
+    exportButton.title = "Exporter le rapport en PDF";
     exportButton.onclick = exportAllChartsToPDF;
     
-    let container = document.querySelector('.dashboard-header') || 
-                   document.querySelector('.header') || 
-                   document.querySelector('.controls') ||
-                   document.querySelector('.btn-group') ||
-                   document.querySelector('body');
-    
-    if (container && container !== document.body) {
-        container.appendChild(exportButton);
-    } else {
-        const floatingContainer = document.createElement('div');
-        floatingContainer.style.cssText = `
-            position: fixed;
-            bottom: 40px;
-            right: 30px;
-            z-index: 1000;
-            padding: 12px 20px;
-            border: none;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        `;
-
-        floatingContainer.appendChild(exportButton);
-        document.body.appendChild(floatingContainer);
-    }
+    document.body.appendChild(exportButton);
 }
 
 
@@ -1045,7 +1039,7 @@ function loadjsPDF() {
     });
 }
 
-// Initialisation (VERSION OPTIMISÉE)
+// Initialisation
 function initializePDFExport() {
     loadjsPDF().then(() => {
         const style = document.createElement('style');

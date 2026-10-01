@@ -108,7 +108,7 @@ class MySQLBackup:
             return {
                 'db_name': 'annuaire_statistique',
                 'db_user': 'root',
-                'db_password': 'Entraide@2025***',
+                'db_password': '',
                 'db_host': 'localhost',
                 'db_port': '3306',
                 'backup_dir': backup_dir,
@@ -374,7 +374,7 @@ if __name__ == '__main__':
     config = {
         'db_name': 'annuaire_statistique',
         'db_user': 'root',
-        'db_password': 'Entraide@2025***',  # Mot de passe vide pour XAMPP par défaut
+        'db_password': '',  # Mot de passe vide pour XAMPP par défaut
         'db_host': 'localhost',
         'db_port': '3306',
         'backup_dir': 'C:\\xampp\\backups\\mysql',

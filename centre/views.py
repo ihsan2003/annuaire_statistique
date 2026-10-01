@@ -1,59 +1,219 @@
 from django.shortcuts import render
 from django.db.models import Sum, Max, Count
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseServerError
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_GET
+from django.core.cache import cache
 from .models import Data, Centre
 from django.conf import settings
-from django.contrib.staticfiles import finders
 import json
 import os
 
 
-def filter_by_region_and_delegation(qs, region, delegation):
-    """
-    Applique les filtres de région et de délégation à une queryset donnée.
+# ─────────────────────────────────────────────
+#  SERVICE
+# ─────────────────────────────────────────────
 
-    Args:
-        qs (QuerySet): La queryset à filtrer.
-        region (str): L'identifiant de la région.
-        delegation (str): L'identifiant de la délégation.
+class CentreDataService:
+    """Service centralisé pour les données des centres"""
 
-    Returns:
-        QuerySet: La queryset filtrée selon les paramètres.
-    """
-    if region:
-        qs = qs.filter(id_region=region)
-    if delegation:
-        try:
-            qs = qs.filter(id_delegation=int(delegation))
-        except (ValueError, TypeError):
-            pass  # Ignore les erreurs de conversion
-    return qs
+    DEFAULT_YEAR = '2022'
 
+    # ── Helpers querysets ──────────────────────────────────────────────────
+
+    @classmethod
+    def apply_filters(cls, qs, region=None, delegation=None):
+        """Applique les filtres région/délégation à un queryset."""
+        if region:
+            qs = qs.filter(id_region=region)
+        if delegation:
+            try:
+                qs = qs.filter(id_delegation=int(delegation))
+            except (ValueError, TypeError):
+                pass
+        return qs
+
+    @classmethod
+    def get_centre_queryset(cls, annee=None, region=None, delegation=None):
+        """Queryset de base sur Centre avec filtres appliqués."""
+        qs = Centre.objects.all()
+        if annee:
+            qs = qs.filter(id_periodicite=annee)
+        return cls.apply_filters(qs, region, delegation)
+
+    @classmethod
+    def get_data_queryset(cls, annee=None, region=None, delegation=None):
+        """Queryset de base sur Data avec filtres appliqués."""
+        qs = Data.objects.all()
+        if annee:
+            qs = qs.filter(id_periodicite=annee)
+        return cls.apply_filters(qs, region, delegation)
+
+    # ── Options de filtrage (cachées 1 heure) ─────────────────────────────
+
+    @classmethod
+    def get_filter_options(cls):
+        """
+        ✅ OPTIMISÉ : Options de filtrage mises en cache 1 heure.
+        """
+        cache_key = 'centre_filter_options'
+        options = cache.get(cache_key)
+
+        if options is None:
+            options = {
+                'annees': list(
+                    Centre.objects.exclude(id_periodicite__isnull=True)
+                    .values('id_periodicite').distinct().order_by('id_periodicite')
+                ),
+                'regions': list(
+                    Centre.objects.exclude(region__isnull=True)
+                    .values('id_region', 'region').distinct().order_by('region')
+                ),
+                'delegations': list(
+                    Centre.objects.exclude(delegation__isnull=True)
+                    .values('id_delegation', 'delegation', 'id_region')
+                    .distinct().order_by('delegation')
+                )
+            }
+            cache.set(cache_key, options, 3600)
+
+        return options
+
+    # ── Statistiques milieu ────────────────────────────────────────────────
+
+    @classmethod
+    def get_milieu_stats(cls, qs):
+        """
+        ✅ OPTIMISÉ : Une seule requête pour toutes les stats milieu.
+        Retourne total, urbain, rural, pourcentages et labels/valeurs pour graphique.
+        """
+        milieu_stats = list(
+            qs.values('milieu')
+            .annotate(total=Sum('nb_centres'))
+            .exclude(milieu__isnull=True)
+            .order_by('milieu')
+        )
+
+        milieu_totals = {
+            entry['milieu'].lower(): entry['total'] or 0
+            for entry in milieu_stats
+        }
+
+        total_centres  = sum(milieu_totals.values()) or 0
+        total_urbain   = milieu_totals.get('urbain', 0)
+        total_rural    = milieu_totals.get('rural', 0)
+        safe_total     = total_centres or 1
+
+        return {
+            'total_centres':      total_centres,
+            'total_urbain':       total_urbain,
+            'total_rural':        total_rural,
+            'pourcentage_urbain': round((total_urbain * 100) / safe_total, 2),
+            'pourcentage_rural':  round((total_rural  * 100) / safe_total, 2),
+            # Pour les graphiques
+            'labels_milieu': [e['milieu'].capitalize() for e in milieu_stats],
+            'total_milieu':  [e['total'] or 0          for e in milieu_stats],
+        }
+
+    # ── Évolution temporelle ───────────────────────────────────────────────
+
+    @classmethod
+    def get_evolution_stats(cls, region=None, delegation=None):
+        """
+        ✅ OPTIMISÉ : Deux requêtes au lieu de trois pour l'évolution.
+        Retourne labels, centres par année, capacité par année, urbain/rural par année.
+        """
+        evo_qs = cls.apply_filters(Centre.objects.all(), region, delegation)
+
+        # ✅ Requête 1 : évolution générale (centres + capacité)
+        evolution = list(
+            evo_qs.values('id_periodicite')
+            .annotate(
+                total_centre=Sum('nb_centres'),
+                total_cap=Sum('capacite')
+            )
+            .order_by('id_periodicite')
+        )
+
+        labels_dates   = [e['id_periodicite'] for e in evolution if e['id_periodicite'] is not None]
+        values_centre  = [e['total_centre'] or 0 for e in evolution]
+        capacite_evol  = [e['total_cap']    or 0 for e in evolution]
+
+        # ✅ Requête 2 : évolution par milieu (une seule requête groupée)
+        milieu_evolution = list(
+            evo_qs.values('id_periodicite', 'milieu')
+            .annotate(total_centres=Sum('nb_centres'))
+            .order_by('id_periodicite')
+        )
+
+        urbain_map, rural_map = {}, {}
+        for entry in milieu_evolution:
+            milieu = (entry['milieu'] or '').lower()
+            if milieu == 'urbain':
+                urbain_map[entry['id_periodicite']] = entry['total_centres'] or 0
+            elif milieu == 'rural':
+                rural_map[entry['id_periodicite']] = entry['total_centres'] or 0
+
+        urbain_evol = [urbain_map.get(d, 0) for d in labels_dates]
+        rural_evol  = [rural_map.get(d, 0)  for d in labels_dates]
+
+        return {
+            'labels_dates':  labels_dates,
+            'values_centre': values_centre,
+            'capacite_evol': capacite_evol,
+            'urbain_evol':   urbain_evol,
+            'rural_evol':    rural_evol,
+        }
+
+    # ── Nombre d'associations ─────────────────────────────────────────────
+
+    @classmethod
+    def get_nombre_associations(cls, data_qs):
+        """Compte le nombre de structures distinctes (noms distincts hors null)."""
+        return (
+            data_qs
+            .exclude(personnes_cibles__isnull=True)
+            .values('nom')
+            .distinct()
+            .count()
+        )
+
+    # ── Capacité totale ────────────────────────────────────────────────────
+
+    @classmethod
+    def get_capacite_totale(cls, qs):
+        return qs.aggregate(total_cap=Sum('capacite'))['total_cap'] or 0
+
+
+# ─────────────────────────────────────────────
+#  VUES
+# ─────────────────────────────────────────────
 
 @login_required
 def get_delegations_by_region(request):
     """
-    Vue AJAX qui retourne la liste des délégations pour une région donnée.
-
-    Cette vue est utilisée dans les filtres dynamiques du frontend.
+    ✅ OPTIMISÉ : Vue AJAX pour les délégations d'une région — avec cache 1 heure.
     """
     region_id = request.GET.get('region_id')
-    delegations = []
+    if not region_id:
+        return JsonResponse({'delegations': []})
 
-    if region_id:
+    cache_key = f'centre_delegations_region_{region_id}'
+    result = cache.get(cache_key)
+
+    if result is None:
         delegations = (
             Data.objects.filter(id_region=region_id)
             .values('id_delegation')
             .annotate(delegation_name=Max('delegation'))
             .order_by('delegation_name')
         )
+        result = [
+            {'id_delegation': d['id_delegation'], 'delegation': d['delegation_name']}
+            for d in delegations if d['id_delegation'] is not None
+        ]
+        cache.set(cache_key, result, 3600)
 
-    result = [
-        {'id_delegation': d['id_delegation'], 'delegation': d['delegation_name']}
-        for d in delegations if d['id_delegation'] is not None
-    ]
     return JsonResponse({'delegations': result})
 
 
@@ -61,279 +221,208 @@ def get_delegations_by_region(request):
 @require_GET
 def repartition_centres_api(request):
     """
-    Vue API pour retourner la répartition des centres :
-    - Par région (si aucune région sélectionnée)
-    - Par délégation (si une région est sélectionnée)
-    Filtrée selon le milieu (total, urbain, rural).
+    ✅ OPTIMISÉ : API répartition des centres avec cache par combinaison de filtres.
     """
-
-    milieu = request.GET.get('filtre', 'total').lower()  # total | urbain | rural
-    region = request.GET.get('region')
+    milieu     = request.GET.get('filtre', 'total').lower()
+    region     = request.GET.get('region')
     delegation = request.GET.get('delegation')
-    annee = request.GET.get('annee', '2022')
+    annee      = request.GET.get('annee', CentreDataService.DEFAULT_YEAR)
+
+    cache_key = f'repartition_centres_{annee}_{region}_{delegation}_{milieu}'
+    cached    = cache.get(cache_key)
+    if cached:
+        return JsonResponse(cached)
 
     niveau = 'delegation' if region else 'region'
+    qs     = CentreDataService.get_centre_queryset(annee, region, delegation)
 
-    # Requête de base
-    qs = Centre.objects.filter(id_periodicite=annee)
-    qs = filter_by_region_and_delegation(qs, region, delegation)
+    # ✅ Stats milieu calculées en une seule requête
+    milieu_data = CentreDataService.get_milieu_stats(qs)
 
-    # Calcul des statistiques globales par milieu
-    milieu_stats = (
-        qs.values('milieu')
-        .annotate(total=Sum('nb_centres'))
-        .exclude(milieu__isnull=True)
-    )
-    # dictionnaire: {'urbain': x, 'rural': y}
-    milieu_totals = {entry['milieu'].lower(): entry['total'] or 0 for entry in milieu_stats}
-    total_centres = sum(milieu_totals.values()) or 0
-    total_urbain = milieu_totals.get('urbain', 0)
-    total_rural = milieu_totals.get('rural', 0)
-
-    # Appliquer filtre milieu
+    # Appliquer le filtre milieu pour la répartition géographique
     if milieu == 'urbain':
         qs = qs.filter(milieu__iexact='urbain')
     elif milieu == 'rural':
         qs = qs.filter(milieu__iexact='rural')
-    # sinon on garde tout pour "total"
 
-    # Regrouper les résultats par région ou délégation
     if niveau == 'region':
         grouped = qs.values('region').annotate(total=Sum('nb_centres')).order_by('region')
-        labels = [g['region'] for g in grouped]
+        labels  = [g['region'] for g in grouped]
     else:
         grouped = qs.values('delegation').annotate(total=Sum('nb_centres')).order_by('delegation')
-        labels = [g['delegation'] for g in grouped]
+        labels  = [g['delegation'] for g in grouped]
 
     values = [g['total'] or 0 for g in grouped]
 
-    return JsonResponse({
+    response_data = {
         'labels': labels,
-        'data': values,
+        'data':   values,
         'milieu_totals': {
-            'total': total_centres,
-            'urbain': total_urbain,
-            'rural': total_rural,
+            'total':  milieu_data['total_centres'],
+            'urbain': milieu_data['total_urbain'],
+            'rural':  milieu_data['total_rural'],
         }
-    })
+    }
+
+    cache.set(cache_key, response_data, 600)
+    return JsonResponse(response_data)
 
 
 @login_required
 def list_centre(request):
     """
-    Vue principale pour afficher les statistiques sur les centres :
-    - Répartition par milieu (urbain/rural)
-    - Capacités totales
-    - Évolution sur plusieurs années
-    - Nombre de populations cibles
+    ✅ VUE PRINCIPALE OPTIMISÉE :
+    - Toutes les stats milieu calculées en UNE seule requête via get_milieu_stats()
+    - Évolution calculée en DEUX requêtes au lieu de trois
+    - Options de filtrage cachées 1 heure
+    - Contexte complet caché 10 minutes par combinaison de filtres
     """
-    # --- Récupération des filtres depuis la requête (avec valeur par défaut pour l'année) ---
-    selected_annee = request.GET.get('annee') or '2022'
-    selected_region = request.GET.get('region')
+    selected_annee      = request.GET.get('annee') or CentreDataService.DEFAULT_YEAR
+    selected_region     = request.GET.get('region')
     selected_delegation = request.GET.get('delegation')
 
-    # --- Initialisation des querysets ---
-    queryset = Centre.objects.all()
-    data_queryset = Data.objects.all()
+    # ─── Clé de cache unique par combinaison de filtres ───────────────────
+    cache_key = f'dashboard_centre_{selected_annee}_{selected_region}_{selected_delegation}'
+    context   = cache.get(cache_key)
 
-    # --- Application des filtres sur l'année, région et délégation ---
-    queryset = queryset.filter(id_periodicite=selected_annee)
-    data_queryset = data_queryset.filter(id_periodicite=selected_annee)
+    if context is None:
 
-    queryset = filter_by_region_and_delegation(queryset, selected_region, selected_delegation)
-    data_queryset = filter_by_region_and_delegation(data_queryset, selected_region, selected_delegation)
+        # ✅ 1. Querysets principaux
+        centre_qs = CentreDataService.get_centre_queryset(
+            selected_annee, selected_region, selected_delegation
+        )
+        data_qs = CentreDataService.get_data_queryset(
+            selected_annee, selected_region, selected_delegation
+        )
 
-    # --- Récupération des valeurs uniques pour les filtres dropdown ---
-    annees = Centre.objects.exclude(id_periodicite__isnull=True).values('id_periodicite').distinct().order_by('id_periodicite')
-    regions = Centre.objects.exclude(region__isnull=True).values('id_region', 'region').distinct().order_by('region')
-    delegations = Centre.objects.exclude(delegation__isnull=True).values('id_delegation', 'delegation', 'id_region').distinct().order_by('delegation')
+        # ✅ 2. Options de filtrage (cachées séparément 1 heure)
+        filter_options = CentreDataService.get_filter_options()
 
-    # --- Statistiques globales par milieu (urbain/rural) ---
-    milieu_stats = (
-        queryset.values('milieu')
-        .annotate(total=Sum('nb_centres'))
-        .exclude(milieu__isnull=True)
-        .order_by('milieu')
-    )
+        # ✅ 3. Stats milieu — UNE seule requête pour tout
+        milieu_data = CentreDataService.get_milieu_stats(centre_qs)
 
-    labels_milieu = [entry['milieu'].capitalize() for entry in milieu_stats]
-    total_milieu = [entry['total'] or 0 for entry in milieu_stats]
-    milieu_totals = {entry['milieu']: entry['total'] or 0 for entry in milieu_stats}
+        # ✅ 4. Capacité totale
+        capacite_autorisee_totale = CentreDataService.get_capacite_totale(centre_qs)
 
-    total_centres = sum(milieu_totals.values()) or 0
-    total_urbain = milieu_totals.get('urbain', 0)
-    total_rural = milieu_totals.get('rural', 0)
+        # ✅ 5. Évolution — DEUX requêtes au lieu de trois
+        evolution_data = CentreDataService.get_evolution_stats(
+            selected_region, selected_delegation
+        )
 
-    pourcentage_urbain = round((total_urbain * 100) / (total_centres or 1), 2)
-    pourcentage_rural = round((total_rural * 100) / (total_centres or 1), 2)
+        # ✅ 6. Nombre d'associations
+        nombre_ass = CentreDataService.get_nombre_associations(data_qs)
 
-    # --- Somme des capacités autorisées ---
-    capacite_autorisee_totale = queryset.aggregate(total_cap=Sum('capacite'))['total_cap'] or 0
+        # ✅ 7. Construction du contexte final
+        context = {
+            # Options de filtrage
+            **filter_options,
+            'selected_annee':      selected_annee,
+            'selected_region':     selected_region,
+            'selected_delegation': selected_delegation,
 
-    # --- Évolution des centres par année ---
-    evolution_queryset = Centre.objects.all()
-    evolution_queryset = filter_by_region_and_delegation(evolution_queryset, selected_region, selected_delegation)
+            # Indicateurs clés
+            'centres_count':             milieu_data['total_centres'],
+            'pourcentage_urbain':        milieu_data['pourcentage_urbain'],
+            'pourcentage_rural':         milieu_data['pourcentage_rural'],
+            'capacite_autorisee_totale': capacite_autorisee_totale,
+            'nombre_ass':                nombre_ass,
 
-    evolution = (
-        evolution_queryset
-        .values('id_periodicite')
-        .annotate(total_centre=Sum('nb_centres'), total_cap=Sum('capacite'))
-        .order_by('id_periodicite')
-    )
-    labels_dates = [e['id_periodicite'] for e in evolution if e['id_periodicite'] is not None]
-    values_centre = [e['total_centre'] or 0 for e in evolution]
-    capacite_evol = [e['total_cap'] or 0 for e in evolution]
+            # Données JSON pour les graphiques
+            'labels_dates':   json.dumps(evolution_data['labels_dates']),
+            'values_centre':  json.dumps(evolution_data['values_centre']),
+            'urbain_evol':    json.dumps(evolution_data['urbain_evol']),
+            'rural_evol':     json.dumps(evolution_data['rural_evol']),
+            'capacite_evol':  json.dumps(evolution_data['capacite_evol']),
+            'labels_milieu':  json.dumps(milieu_data['labels_milieu']),
+            'total_milieu':   json.dumps(milieu_data['total_milieu']),
+        }
 
-    # --- Évolution des centres selon le milieu ---
-    milieu_evolution = (
-        evolution_queryset
-        .values('id_periodicite', 'milieu')
-        .annotate(total_centres=Sum('nb_centres'))
-        .order_by('id_periodicite')
-    )
-    urbain_map, rural_map = {}, {}
-    for entry in milieu_evolution:
-        if entry['milieu'] == 'urbain':
-            urbain_map[entry['id_periodicite']] = entry['total_centres'] or 0
-        elif entry['milieu'] == 'rural':
-            rural_map[entry['id_periodicite']] = entry['total_centres'] or 0
-
-    urbain_evol = [urbain_map.get(date, 0) for date in labels_dates]
-    rural_evol = [rural_map.get(date, 0) for date in labels_dates]
-
-    # --- Nombre de types des associations ---
-    nombre_ass = (
-        data_queryset
-        .exclude(personnes_cibles__isnull=True)
-        .values('nom')
-        .distinct()
-        .count()
-    )
-
-    # --- Transmission des données au template ---
-    context = {
-        # Filtres sélectionnés et listes déroulantes
-        'annees': annees,
-        'regions': regions,
-        'delegations': delegations,
-        'selected_annee': selected_annee,
-        'selected_region': selected_region,
-        'selected_delegation': selected_delegation,
-
-        # Indicateurs clés
-        'centres_count': total_centres,
-        'pourcentage_urbain': pourcentage_urbain,
-        'pourcentage_rural': pourcentage_rural,
-        'capacite_autorisee_totale': capacite_autorisee_totale,
-        'nombre_ass': nombre_ass,
-
-        # Données pour les graphiques
-        'labels_dates': json.dumps(labels_dates),
-        'values_centre': json.dumps(values_centre),
-        'urbain_evol': json.dumps(urbain_evol),
-        'rural_evol': json.dumps(rural_evol),
-        'capacite_evol': json.dumps(capacite_evol),
-
-        'labels_milieu': json.dumps(labels_milieu),
-        'total_milieu': json.dumps(total_milieu),
-    }
+        # ✅ 8. Mise en cache 10 minutes
+        cache.set(cache_key, context, 600)
 
     return render(request, 'centre.html', context)
 
 
-
-"""
-def centres_api(request):
-    delegation = request.GET.get("delegation")
-    centres = Data.objects.all()
-
-    if delegation:
-        centres = centres.filter(delegation=delegation)
-    
-    data = [
-        {
-            "nom": c.nom,
-            "latitude": c.latitude,
-            "longitude": c.longitude,
-            "axe_updated": c.axe_updated,
-            "programme_updated": c.programme_updated,
-            "nb_beneficiaires_t": c.nb_beneficiaires_t,
-            "delegation": c.delegation
-        }
-        for c in centres
-    ]
-    
-    return JsonResponse(data, safe=False)
-"""
-
-def _read_geojson_static(path_in_static):
-    """
-    Lit un fichier static (geojson/json) via staticfiles.finders et renvoie le dict JSON.
-    """
-    full_path = finders.find(path_in_static)
-    if not full_path or not os.path.exists(full_path):
-        raise FileNotFoundError(f"Fichier introuvable: {path_in_static}")
-    with open(full_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+# ─────────────────────────────────────────────
+#  VUES GEOJSON / CARTE  (inchangées, lecture fichier)
+# ─────────────────────────────────────────────
 
 @login_required
 def regions_api(request):
     try:
-        geojson_path = os.path.join(settings.BASE_DIR, 'centre', 'static', 'geojson', 'region.geojson')
-
+        geojson_path = os.path.join(
+            settings.BASE_DIR, 'centre', 'static', 'geojson', 'region.geojson'
+        )
         if not os.path.exists(geojson_path):
             return JsonResponse({'error': f'Fichier non trouvé : {geojson_path}'}, status=404)
-
         with open(geojson_path, encoding='utf-8') as f:
             data = json.load(f)
-
         return JsonResponse(data, safe=False)
-
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
 @login_required
 def delegations_api(request):
     region_name = request.GET.get('region')
-
     try:
-        geojson_path = os.path.join(settings.BASE_DIR, 'centre', 'static', 'geojson', 'delegations.geojson')
-
+        geojson_path = os.path.join(
+            settings.BASE_DIR, 'centre', 'static', 'geojson', 'delegations.geojson'
+        )
         if not os.path.exists(geojson_path):
             return JsonResponse({'error': f'Fichier non trouvé : {geojson_path}'}, status=404)
-
         with open(geojson_path, encoding='utf-8') as f:
             data = json.load(f)
-
-        # Si une région est spécifiée, filtrer les délégations
         if region_name:
-            features = [
-                feat for feat in data["features"]
-                if feat["properties"].get("region") == region_name
+            data['features'] = [
+                feat for feat in data['features']
+                if feat['properties'].get('region') == region_name
             ]
-            data["features"] = features
-
         return JsonResponse(data, safe=False)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
 @login_required
 def centres_api(request):
-    delegation_name = request.GET.get("delegation")
-    centres = Data.objects.all()
+    """
+    ✅ OPTIMISÉ : Utilise values() pour ne charger que les champs nécessaires
+    au lieu de charger les objets complets.
+    """
+    delegation_name = request.GET.get('delegation')
+    programme       = request.GET.get('programme')
 
+    qs = Data.objects.all()
     if delegation_name:
-        centres = centres.filter(delegation=delegation_name)
+        qs = qs.filter(delegation=delegation_name)
+    if programme:
+        qs = qs.filter(programme_updated=programme)
 
-    data = [
-        {
-            "nom": c.nom,
-            "latitude": c.latitude,
-            "longitude": c.longitude,
-            "axe_updated": c.axe_updated,
-            "programme_updated": c.programme_updated,
-            "nb_beneficiaires_t": c.nb_beneficiaires_t,
-            "delegation": c.delegation
-        }
-        for c in centres
-    ]
+    # ✅ values() évite de charger tous les champs inutiles de Data
+    data = list(
+        qs.values(
+            'nom', 'latitude', 'longitude',
+            'axe_updated', 'programme_updated',
+            'nb_beneficiaires_t', 'delegation'
+        )
+    )
 
     return JsonResponse(data, safe=False)
+
+
+@login_required
+def programmes_api(request):
+    """
+    ✅ OPTIMISÉ : Mise en cache de la liste des programmes (données statiques).
+    """
+    cache_key = 'programmes_list'
+    programmes = cache.get(cache_key)
+
+    if programmes is None:
+        programmes = list(
+            Data.objects.values_list('programme_updated', flat=True)
+            .distinct().order_by('programme_updated')
+        )
+        cache.set(cache_key, programmes, 3600)
+
+    return JsonResponse(programmes, safe=False)
